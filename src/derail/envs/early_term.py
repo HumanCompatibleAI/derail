@@ -1,3 +1,5 @@
+"""Environment checking for correctness under early termination."""
+
 from functools import partial
 
 import gym
@@ -12,6 +14,22 @@ from derail.utils import (
 
 
 class EarlyTerminationEnv(BaseEnv):
+    """
+
+    Many implementations of imitation learning algorithms incorrectly assign a
+    value of zero to terminal states (Kostrikov et. al (2018)).  Depending on
+    the sign of the learned reward function in non-terminal states, this can
+    either bias the agent to end episodes early or prolong them as long as
+    possible.  This confounds evaluation as performance is spuriously high in
+    tasks where the termination bias aligns with the task objective.  These
+    tasks attempt to detect this type of bias, and they are adapted from
+    Kostrikov et. al (2018).
+
+    The environment is a 3-state MDP, in which the agent can either alternate
+    between two initial states until reaching the time horizon, or they can
+    move to a terminal state causing the episode to terminate early.
+    """
+
     def __init__(self, is_reward_positive=True):
         nS = 3
         nA = 2
@@ -26,7 +44,7 @@ class EarlyTerminationEnv(BaseEnv):
         self.transition_matrix[2, :, 2] = 1.0
 
         if is_reward_positive:
-            rewards = np.array([1.0, 1.0, 5.0])
+            rewards = np.array([1.0, 1.0, 1.0])
         else:
             rewards = np.array([-1.0, -1.0, -1.0])
 

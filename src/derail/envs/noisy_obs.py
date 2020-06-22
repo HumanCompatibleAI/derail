@@ -1,3 +1,5 @@
+"""Environment testing for scalability against noise."""
+
 import itertools
 
 import gym

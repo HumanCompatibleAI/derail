@@ -1,3 +1,5 @@
+"""Environment testing scalability to high-dimensionality."""
+
 import gym
 from gym.spaces import Box
 import numpy as np

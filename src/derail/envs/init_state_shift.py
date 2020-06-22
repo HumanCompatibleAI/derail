@@ -1,3 +1,5 @@
+"""Environment testing initial state distribution shift."""
+
 from functools import partial
 
 import gym
@@ -9,6 +11,23 @@ from derail.utils import sample_distribution
 
 
 class InitStateShiftEnv(BaseEnv):
+    """Tests for robustness to initial state shift.
+
+    Many LfH algorithms learn from expert demonstrations. This can be
+    problematic when the environment the demonstrations were gathered in
+    differs even slightly from the learner's environment.
+
+    This task illustrates this problem.  We have a depth-2 full binary tree
+    where the agent moves left or right until reaching a leaf. The expert
+    starts at the root s_0, whereas the learner starts at the left branch
+    s_1 and so can only reach leaves s_3 and s_4. Reward is only given
+    at the leaves.
+
+    The expert always move to the highest reward leaf s_6, so any algorithm
+    that relies on demonstrations will not know whether it is better to go to
+    s_3 or s_4. By contrast, feedback such as preference comparison can
+    disambiguate this case.  """
+
     def __init__(self, initial_state=0):
         self.initial_state = initial_state
         nS = 7

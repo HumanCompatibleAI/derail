@@ -1,3 +1,5 @@
+"""Environment testing for generalization in continuous observation and action spaces."""
+
 import gym
 from gym.spaces import Box
 import numpy as np

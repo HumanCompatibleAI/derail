@@ -1,3 +1,5 @@
+"Branching MDP environment, tests for exploration."
+
 import itertools
 
 import gym
@@ -7,7 +9,14 @@ from derail.envs.base_env import BaseEnv
 
 
 class BranchingEnv(BaseEnv):
-    def __init__(self, branch_factor=3, length=10, shaping_term=0):
+    """Simple hard-exploration environment.
+
+    Branching tests LfH algorithms' exploration ability. The agent must
+    traverse a specific path of length `L` to reach a final goal, with `B`
+    choices at each step. Wrong actions lead to dead-ends with zero reward.
+    """
+
+    def __init__(self, branch_factor=2, length=10, shaping_term=0):
         self.branch_factor = branch_factor
         self.shaping_term = shaping_term
 
@@ -30,6 +39,7 @@ class BranchingEnv(BaseEnv):
             return state
 
     def reward_fn(self, state, act, next_state):
+        """Return reward value R(s, a, s')."""
         num_states = self.observation_space.n
         goal_reward = int(next_state == num_states - 1)
         shaping_reward = self.shaping_term * (
