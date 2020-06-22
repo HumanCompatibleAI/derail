@@ -168,7 +168,7 @@ TASKS = {
     "early_term_neg": SimpleTask(
         env_name="EarlyTermNeg", expert_fn=get_early_term_neg_expert,
     ),
-    "evenodd": SimpleTask(env_name="EvenOdd", expert_fn=get_evenodd_expert,),
+    "largest_sum": SimpleTask(env_name="LargestSum", expert_fn=get_largest_sum_expert,),
     "quadratic": SimpleTask(env_name="Quadratic", expert_fn=get_quadratic_expert,),
     "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
@@ -223,7 +223,7 @@ def is_compatible(task_name, algo_name):
     continuous_tasks = [
         "sort",
         "noisy_obs",
-        "evenodd",
+        "largest_sum",
         "quadratic",
         "random_goal",
     ]

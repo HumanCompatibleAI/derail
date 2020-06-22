@@ -7,7 +7,7 @@ from derail.envs.base_env import BaseEnv
 from derail.utils import LightweightRLModel
 
 
-class EvenOddEnv(BaseEnv):
+class LargestSumEnv(BaseEnv):
     def __init__(self, length=50):
         self.length = length
         self.observation_space = Box(low=0.0, high=1.0, shape=(length,))
@@ -24,7 +24,7 @@ class EvenOddEnv(BaseEnv):
         return state
 
 
-def get_evenodd_expert(venv):
+def get_largest_sum_expert(venv):
     def predict_fn(ob, state=None, deterministic=False):
         return int(np.sum(ob[::2]) < np.sum(ob[1::2])), state
 
@@ -34,7 +34,7 @@ def get_evenodd_expert(venv):
 _horizon_v0 = 1
 
 gym.register(
-    id=f"seals/EvenOdd-v0",
-    entry_point=f"derail.envs:EvenOddEnv",
+    id=f"seals/LargestSum-v0",
+    entry_point=f"derail.envs:LargestSumEnv",
     max_episode_steps=_horizon_v0,
 )

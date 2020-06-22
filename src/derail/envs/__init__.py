@@ -1,5 +1,5 @@
 from derail.envs.branching import *
-from derail.envs.evenodd import *
+from derail.envs.largest_sum import *
 from derail.envs.noisy_obs import *
 from derail.envs.random_goal import *
 from derail.envs.sort import *
