@@ -3,7 +3,7 @@ import numpy as np
 
 from scipy.special import logsumexp
 
-from dr_seals.utils import (
+from derail.utils import (
     get_horizon,
     get_raw_env,
     LightweightRLModel,

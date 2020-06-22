@@ -5,9 +5,9 @@ from gym.spaces import Discrete, MultiDiscrete, Box
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
-from dr_seals.utils import (
+from derail.utils import (
     get_raw_env,
     grid_transition_fn,
     LightweightRLModel,
@@ -83,14 +83,14 @@ _horizon_v0 = 15
 
 gym.register(
     id=f"seals/NoisyObs-v0",
-    entry_point=f"dr_seals.envs:NoisyObsEnv",
+    entry_point=f"derail.envs:NoisyObsEnv",
     max_episode_steps=_horizon_v0,
 )
 
 for i, (size, length) in enumerate(itertools.product((3, 5, 7), (5, 50, 500)), 1):
     gym.register(
         id=f"seals/NoisyObs-v{i}",
-        entry_point=f"dr_seals.envs:NoisyObsEnv",
+        entry_point=f"derail.envs:NoisyObsEnv",
         max_episode_steps=_horizon_v0,
         kwargs=dict(
             size=size,

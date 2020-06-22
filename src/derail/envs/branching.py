@@ -5,7 +5,7 @@ from gym.spaces import Discrete, MultiDiscrete, Box
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
 
 class BranchingEnv(BaseEnv):
@@ -44,6 +44,6 @@ _horizon_v0 = 10
 
 gym.register(
     id=f"seals/Branching-v0",
-    entry_point=f"dr_seals.envs:BranchingEnv",
+    entry_point=f"derail.envs:BranchingEnv",
     max_episode_steps=_horizon_v0,
 )

@@ -1,11 +1,11 @@
-"""setup.py for dr_seals paper project."""
+"""setup.py for derail paper project."""
 
 from setuptools import find_packages, setup
-import src.dr_seals  # pytype: disable=import-error
+import src.derail  # pytype: disable=import-error
 
 setup(
-    name="dr_seals",
-    version=src.dr_seals.__version__,
+    name="derail",
+    version=src.derail.__version__,
     description=("Code for DERAIL: Diagnostic Environments for Reward And Imitation Learning"),
     author='Center for Human-Compatible AI',
     author_email='pedrofreirex@gmail.com',

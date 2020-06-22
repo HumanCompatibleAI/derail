@@ -5,9 +5,9 @@ from gym.spaces import Discrete, MultiDiscrete, Box
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
-from dr_seals.utils import sample_distribution
+from derail.utils import sample_distribution
 
 
 class InitStateShiftEnv(BaseEnv):
@@ -45,12 +45,12 @@ _horizon_v0 = 2
 
 gym.register(
     id=f"seals/InitStateShiftLearner-v0",
-    entry_point=f"dr_seals.envs:InitStateShiftLearnerEnv",
+    entry_point=f"derail.envs:InitStateShiftLearnerEnv",
     max_episode_steps=_horizon_v0,
 )
 
 gym.register(
     id=f"seals/InitStateShiftExpert-v0",
-    entry_point=f"dr_seals.envs:InitStateShiftExpertEnv",
+    entry_point=f"derail.envs:InitStateShiftExpertEnv",
     max_episode_steps=_horizon_v0,
 )

@@ -3,7 +3,7 @@ from gym.spaces import Discrete
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.utils import sample_distribution
+from derail.utils import sample_distribution
 
 
 class BaseEnv(gym.Env):

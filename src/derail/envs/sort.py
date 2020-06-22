@@ -3,9 +3,9 @@ from gym.spaces import MultiDiscrete, Box
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
-from dr_seals.utils import LightweightRLModel
+from derail.utils import LightweightRLModel
 
 
 class SortEnv(BaseEnv):
@@ -82,6 +82,6 @@ _horizon_v0 = 6
 
 gym.register(
     id=f"seals/Sort-v0",
-    entry_point=f"dr_seals.envs:SortEnv",
+    entry_point=f"derail.envs:SortEnv",
     max_episode_steps=_horizon_v0,
 )

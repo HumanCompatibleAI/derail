@@ -14,7 +14,7 @@ from rllab.envs.gym_env import GymEnv
 from airl.algos.irl_trpo import IRLTRPO
 from airl.models.imitation_learning import GAIL, AIRLStateAction
 
-from dr_seals.utils import (
+from derail.utils import (
     get_raw_env,
     LightweightRLModel,
     sample_trajectories,

@@ -12,7 +12,7 @@ from stable_baselines.common.policies import MlpPolicy
 from imitation.rewards.reward_net import BasicShapedRewardNet
 from imitation.util import reward_wrapper
 
-from dr_seals.utils import (
+from derail.utils import (
     get_random_policy,
     sample_trajectories,
     get_raw_env,

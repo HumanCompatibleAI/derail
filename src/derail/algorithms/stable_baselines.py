@@ -3,7 +3,7 @@ import uuid
 from stable_baselines import GAIL
 from stable_baselines.gail import ExpertDataset, generate_expert_traj
 
-from dr_seals.utils import (
+from derail.utils import (
     get_horizon,
     get_ppo,
     get_raw_env,

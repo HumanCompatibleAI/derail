@@ -8,7 +8,7 @@ import os
 import tensorflow as tf
 from stable_baselines.common.vec_env import DummyVecEnv
 
-from dr_seals.utils import (
+from derail.utils import (
     get_expert_algo,
     get_random_policy,
     get_timestamp,
@@ -19,8 +19,8 @@ from dr_seals.utils import (
     train_rl,
 )
 
-from dr_seals.envs import *
-from dr_seals.algorithms import *
+from derail.envs import *
+from derail.algorithms import *
 
 
 class EvalCallback:

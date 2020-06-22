@@ -3,7 +3,7 @@ from gym.spaces import Discrete
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
 
 class RiskyPathEnv(BaseEnv):
@@ -31,6 +31,6 @@ _horizon_v0 = 5
 
 gym.register(
     id=f"seals/RiskyPath-v0",
-    entry_point=f"dr_seals.envs:RiskyPathEnv",
+    entry_point=f"derail.envs:RiskyPathEnv",
     max_episode_steps=_horizon_v0,
 )

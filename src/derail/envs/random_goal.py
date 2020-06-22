@@ -3,9 +3,9 @@ from gym.spaces import Discrete, MultiDiscrete, Box
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
-from dr_seals.utils import (
+from derail.utils import (
     grid_transition_fn,
     LightweightRLModel,
 )
@@ -62,6 +62,6 @@ _horizon_v0 = 20
 
 gym.register(
     id=f"seals/RandomGoal-v0",
-    entry_point=f"dr_seals.envs:RandomGoalEnv",
+    entry_point=f"derail.envs:RandomGoalEnv",
     max_episode_steps=_horizon_v0,
 )

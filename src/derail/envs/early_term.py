@@ -5,9 +5,9 @@ from gym.spaces import Discrete, MultiDiscrete, Box
 from gym.utils import seeding
 import numpy as np
 
-from dr_seals.envs.base_env import BaseEnv
+from derail.envs.base_env import BaseEnv
 
-from dr_seals.utils import (
+from derail.utils import (
     LightweightRLModel,
     sample_distribution,
 )
@@ -70,12 +70,12 @@ _horizon_v0 = 10
 
 gym.register(
     id=f"seals/EarlyTermPos-v0",
-    entry_point=f"dr_seals.envs:EarlyTermPosEnv",
+    entry_point=f"derail.envs:EarlyTermPosEnv",
     max_episode_steps=_horizon_v0,
 )
 
 gym.register(
     id=f"seals/EarlyTermNeg-v0",
-    entry_point=f"dr_seals.envs:EarlyTermNegEnv",
+    entry_point=f"derail.envs:EarlyTermNegEnv",
     max_episode_steps=_horizon_v0,
 )

@@ -10,7 +10,7 @@ from imitation.util.buffering_wrapper import BufferingWrapper
 from imitation.util import buffer, reward_wrapper
 from imitation.util.rollout import flatten_trajectories
 
-from dr_seals.utils import (
+from derail.utils import (
     get_ppo,
     sample_trajectories,
 )
