@@ -56,6 +56,11 @@ class EvalCallback:
     def get_results(self):
         return self.returns
 
+def name_with_version(name):
+    if '-v' in name:
+        return name
+    else:
+        return f'{name}-v0'
 
 class SimpleTask:
     def __init__(
@@ -93,7 +98,8 @@ class SimpleTask:
         self.callback_kwargs = dict()
 
     def run(self, algo, **algo_kwargs):
-        expert_env = gym.make(f"seals/{self.expert_env_name}-v0")
+        
+        expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
         expert_env = DummyVecEnv([lambda: expert_env])
 
         total_timesteps = algo_kwargs.get("total_timesteps", None)
@@ -114,7 +120,7 @@ class SimpleTask:
 
         tf.reset_default_graph()
         with tf.Session(config=tf.ConfigProto(device_count={"GPU": 0})) as sess:
-            env = gym.make(f"seals/{self.env_name}-v0")
+            env = gym.make(f"seals/{name_with_version(self.env_name)}")
             env = DummyVecEnv([lambda: env])
 
             kwargs = self.algo_kwargs.copy()
@@ -163,6 +169,17 @@ TASKS = {
     "evenodd": SimpleTask(env_name="EvenOdd", expert_fn=get_evenodd_expert,),
     "quadratic": SimpleTask(env_name="Quadratic", expert_fn=get_quadratic_expert,),
     "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
+
+    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v2": SimpleTask(env_name="NoisyObs-v2", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v3": SimpleTask(env_name="NoisyObs-v3", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v4": SimpleTask(env_name="NoisyObs-v4", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v5": SimpleTask(env_name="NoisyObs-v5", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v6": SimpleTask(env_name="NoisyObs-v6", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v7": SimpleTask(env_name="NoisyObs-v7", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v8": SimpleTask(env_name="NoisyObs-v8", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v9": SimpleTask(env_name="NoisyObs-v9", expert_fn=get_noisyobs_expert,),
+
     "risky_path": SimpleTask(
         env_name="RiskyPath",
         expert_fn=get_hard_mdp_expert,
@@ -240,6 +257,9 @@ def eval_algorithms(
     tasks = [name for name in TASKS if re.search(tasks_regex, name) is not None]
     algos = [name for name in ALGOS if re.search(algos_regex, name) is not None]
 
+    print('*** ALGORITHMS ***', *algos, sep='\n', end='\n\n')
+    print('*** TASKS ***', *tasks, sep='\n', end='\n\n')
+
     def get_experiments():
         for seed, task_name, algo_name in itertools.product(range(num_seeds), tasks, algos):
             if is_compatible(task_name, algo_name):
@@ -250,6 +270,8 @@ def eval_algorithms(
     def log_line(line):
         lines.append(line)
         print(f"[Result] \t{line}")
+        with open(f"partial-results-{timestamp}.csv", "a") as f:
+            f.write(f'{line}\n')
 
     def log_result(result):
         task = result["task"]
@@ -268,7 +290,7 @@ def eval_algorithms(
         with futures.ProcessPoolExecutor(max_workers=None) as executor:
             fts = []
             for spec in get_experiments():
-                fts.append(executor.submit(run_experiment, *spec))
+                fts.append(executor.submit(run_experiment, *spec, total_timesteps=timesteps))
             for f in futures.as_completed(fts):
                 log_result(f.result())
     else:
