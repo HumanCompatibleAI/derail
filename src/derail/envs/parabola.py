@@ -10,7 +10,7 @@ from derail.utils import (
 )
 
 
-class QuadraticEnv(BaseEnv):
+class ParabolaEnv(BaseEnv):
     def __init__(self, dx=0.05, bounds=5):
         self.dx = dx
         self.bounds = bounds
@@ -39,7 +39,7 @@ class QuadraticEnv(BaseEnv):
         return np.array([next_x, next_y, a, b, c])
 
 
-def get_quadratic_expert(venv):
+def get_parabola_expert(venv):
     env = get_raw_env(venv)
 
     def predict_fn(ob, state=None, deterministic=False):
@@ -56,7 +56,7 @@ def get_quadratic_expert(venv):
 _horizon_v0 = 20
 
 gym.register(
-    id=f"seals/Quadratic-v0",
-    entry_point=f"derail.envs:QuadraticEnv",
+    id=f"seals/Parabola-v0",
+    entry_point=f"derail.envs:ParabolaEnv",
     max_episode_steps=_horizon_v0,
 )

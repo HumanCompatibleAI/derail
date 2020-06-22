@@ -5,5 +5,5 @@ from derail.envs.random_goal import *
 from derail.envs.sort import *
 from derail.envs.early_term import *
 from derail.envs.init_state_shift import *
-from derail.envs.quadratic import *
+from derail.envs.parabola import *
 from derail.envs.risky_path import *
