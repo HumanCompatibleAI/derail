@@ -20,6 +20,7 @@ from derail.utils import (
     sample_trajectories,
 )
 
+
 def to_rllab_trajectories(trajectories, env):
     def to_one_hot(tensor, n):
         return (np.eye(n)[tensor]).astype(np.float32)
@@ -57,7 +58,9 @@ def fu_irl(
     tf_env = TfEnv(GymEnv(env=raw_env, record_video=False, record_log=False))
 
     if expert_trajectories is None:
-        expert_trajectories = sample_trajectories(expert_venv, expert, n_episodes=total_timesteps)
+        expert_trajectories = sample_trajectories(
+            expert_venv, expert, n_episodes=total_timesteps
+        )
     expert_trajectories = to_rllab_trajectories(expert_trajectories, venv)
 
     if is_airl:

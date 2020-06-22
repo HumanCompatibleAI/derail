@@ -56,11 +56,13 @@ class EvalCallback:
     def get_results(self):
         return self.returns
 
+
 def name_with_version(name):
-    if '-v' in name:
+    if "-v" in name:
         return name
     else:
-        return f'{name}-v0'
+        return f"{name}-v0"
+
 
 class SimpleTask:
     def __init__(
@@ -98,7 +100,7 @@ class SimpleTask:
         self.callback_kwargs = dict()
 
     def run(self, algo, **algo_kwargs):
-        
+
         expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
         expert_env = DummyVecEnv([lambda: expert_env])
 
@@ -169,7 +171,6 @@ TASKS = {
     "evenodd": SimpleTask(env_name="EvenOdd", expert_fn=get_evenodd_expert,),
     "quadratic": SimpleTask(env_name="Quadratic", expert_fn=get_quadratic_expert,),
     "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
-
     # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v2": SimpleTask(env_name="NoisyObs-v2", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v3": SimpleTask(env_name="NoisyObs-v3", expert_fn=get_noisyobs_expert,),
@@ -179,7 +180,6 @@ TASKS = {
     # "noisy_obs_v7": SimpleTask(env_name="NoisyObs-v7", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v8": SimpleTask(env_name="NoisyObs-v8", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v9": SimpleTask(env_name="NoisyObs-v9", expert_fn=get_noisyobs_expert,),
-
     "risky_path": SimpleTask(
         env_name="RiskyPath",
         expert_fn=get_hard_mdp_expert,
@@ -205,6 +205,7 @@ ALGOS = {
     "random": random_algo,
     "ppo": ppo_algo,
 }
+
 
 def run_experiment(task_name, algo_name, seed, *args, **kwargs):
     print(f"[Running] \t{task_name} {algo_name}")
@@ -257,11 +258,13 @@ def eval_algorithms(
     tasks = [name for name in TASKS if re.search(tasks_regex, name) is not None]
     algos = [name for name in ALGOS if re.search(algos_regex, name) is not None]
 
-    print('*** ALGORITHMS ***', *algos, sep='\n', end='\n\n')
-    print('*** TASKS ***', *tasks, sep='\n', end='\n\n')
+    print("*** ALGORITHMS ***", *algos, sep="\n", end="\n\n")
+    print("*** TASKS ***", *tasks, sep="\n", end="\n\n")
 
     def get_experiments():
-        for seed, task_name, algo_name in itertools.product(range(num_seeds), tasks, algos):
+        for seed, task_name, algo_name in itertools.product(
+            range(num_seeds), tasks, algos
+        ):
             if is_compatible(task_name, algo_name):
                 yield task_name, algo_name, seed
 
@@ -271,7 +274,7 @@ def eval_algorithms(
         lines.append(line)
         print(f"[Result] \t{line}")
         with open(f"partial-results-{timestamp}.csv", "a") as f:
-            f.write(f'{line}\n')
+            f.write(f"{line}\n")
 
     def log_result(result):
         task = result["task"]
@@ -290,7 +293,9 @@ def eval_algorithms(
         with futures.ProcessPoolExecutor(max_workers=None) as executor:
             fts = []
             for spec in get_experiments():
-                fts.append(executor.submit(run_experiment, *spec, total_timesteps=timesteps))
+                fts.append(
+                    executor.submit(run_experiment, *spec, total_timesteps=timesteps)
+                )
             for f in futures.as_completed(fts):
                 log_result(f.result())
     else:
@@ -334,8 +339,8 @@ if __name__ == "__main__":
         action="store_true",
         help="Whether to run experiments in parallel",
     )
-    parser.add_argument('-l', '--logging', default=True, action='store_true')
-    parser.add_argument('-nl', '--no_logging', dest='logging', action='store_false')
+    parser.add_argument("-l", "--logging", default=True, action="store_true")
+    parser.add_argument("-nl", "--no_logging", dest="logging", action="store_false")
     args = parser.parse_args()
 
     eval_algorithms(

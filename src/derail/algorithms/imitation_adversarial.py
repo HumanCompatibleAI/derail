@@ -15,6 +15,7 @@ from derail.utils import (
     sample_trajectories,
 )
 
+
 def adversarial_learning(
     venv,
     expert=None,
@@ -107,9 +108,7 @@ def adversarial_learning(
             obs = np.concatenate([gen_samples.obs, expert_samples.obs])
             acts = np.concatenate([gen_samples.acts, expert_samples.acts])
             next_obs = np.concatenate([gen_samples.next_obs, expert_samples.next_obs])
-            labels = np.concatenate(
-                [np.ones(half_minibatch), np.zeros(half_minibatch)]
-            )
+            labels = np.concatenate([np.ones(half_minibatch), np.zeros(half_minibatch)])
 
             log_act_prob = gen_policy.action_probability(obs, actions=acts, logp=True)
             log_act_prob = log_act_prob.reshape((disc_minibatch_size,))

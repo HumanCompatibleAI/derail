@@ -11,6 +11,7 @@ from derail.utils import (
     sample_trajectories,
 )
 
+
 def get_expert_dataset(
     expert, venv, total_timesteps,
 ):

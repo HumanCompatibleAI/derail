@@ -6,9 +6,11 @@ import src.derail  # pytype: disable=import-error
 setup(
     name="derail",
     version=src.derail.__version__,
-    description=("Code for DERAIL: Diagnostic Environments for Reward And Imitation Learning"),
-    author='Center for Human-Compatible AI',
-    author_email='pedrofreirex@gmail.com',
+    description=(
+        "Code for DERAIL: Diagnostic Environments for Reward And Imitation Learning"
+    ),
+    author="Center for Human-Compatible AI",
+    author_email="pedrofreirex@gmail.com",
     python_requires=">=3.7.0,<3.8",
     packages=find_packages("src"),
     package_dir={"": "src"},

@@ -31,12 +31,7 @@ class NoisyObsEnv(BaseEnv):
 
     def sample_initial_state(self):
         n = self.size
-        corners = np.array([
-            [0, 0],
-            [n - 1, 0],
-            [0, n - 1],
-            [n - 1, n - 1],
-        ])
+        corners = np.array([[0, 0], [n - 1, 0], [0, n - 1], [n - 1, n - 1],])
         return corners[np.random.randint(4)]
 
     def reward_fn(self, state, act, next_state):
@@ -92,8 +87,5 @@ for i, (size, length) in enumerate(itertools.product((3, 5, 7), (5, 50, 500)), 1
         id=f"seals/NoisyObs-v{i}",
         entry_point=f"derail.envs:NoisyObsEnv",
         max_episode_steps=_horizon_v0,
-        kwargs=dict(
-            size=size,
-            noise_length=length,
-        )
+        kwargs=dict(size=size, noise_length=length,),
     )

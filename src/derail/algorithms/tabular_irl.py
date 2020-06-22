@@ -24,7 +24,9 @@ def maximum_entropy_irl(
     env = get_raw_env(venv)
 
     if expert_trajectories is None:
-        expert_trajectories = sample_trajectories(expert_venv, expert, n_timesteps=total_timesteps)
+        expert_trajectories = sample_trajectories(
+            expert_venv, expert, n_timesteps=total_timesteps
+        )
 
     num_states = env.observation_space.n
 
@@ -69,7 +71,7 @@ def compute_occupancy_measure(
     num_states = transition.shape[0]
     # transport[t, s, ns] == sum_a policy[t, s, a] * transition[s, a, ns]
     # transport = np.sum(policy[:, :, :, None] * transition[None, :, :, :], axis=2)
-    transport = np.einsum('tsa,san->tsn', policy, transition)
+    transport = np.einsum("tsa,san->tsn", policy, transition)
 
     density = np.zeros((horizon + 1, num_states))
     density[0] = initial_state_distribution
