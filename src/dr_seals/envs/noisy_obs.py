@@ -1,3 +1,5 @@
+import itertools
+
 import gym
 from gym.spaces import Discrete, MultiDiscrete, Box
 from gym.utils import seeding
@@ -13,10 +15,10 @@ from dr_seals.utils import (
 
 
 class NoisyObsEnv(BaseEnv):
-    def __init__(self, *args, size=5, noise_length=50, **kwargs):
+    def __init__(self, *args, size=5, noise_length=20, **kwargs):
         self.size = size
         self.noise_length = noise_length
-        self.goal = np.array([self.size - 2, self.size - 2])
+        self.goal = np.array([self.size // 2, self.size // 2])
 
         self.observation_space = Box(
             low=np.concatenate(([0, 0], np.full(self.noise_length, -np.inf),)),
@@ -28,7 +30,14 @@ class NoisyObsEnv(BaseEnv):
         super().__init__(num_actions=5)
 
     def sample_initial_state(self):
-        return np.array((0, 0))
+        n = self.size
+        corners = np.array([
+            [0, 0],
+            [n - 1, 0],
+            [0, n - 1],
+            [n - 1, n - 1],
+        ])
+        return corners[np.random.randint(4)]
 
     def reward_fn(self, state, act, next_state):
         dist = np.linalg.norm(self.goal - state)
@@ -77,3 +86,14 @@ gym.register(
     entry_point=f"dr_seals.envs:NoisyObsEnv",
     max_episode_steps=_horizon_v0,
 )
+
+for i, (size, length) in enumerate(itertools.product((3, 5, 7), (5, 50, 500)), 1):
+    gym.register(
+        id=f"seals/NoisyObs-v{i}",
+        entry_point=f"dr_seals.envs:NoisyObsEnv",
+        max_episode_steps=_horizon_v0,
+        kwargs=dict(
+            size=size,
+            noise_length=length,
+        )
+    )

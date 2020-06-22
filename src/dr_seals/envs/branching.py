@@ -9,7 +9,7 @@ from dr_seals.envs.base_env import BaseEnv
 
 
 class BranchingEnv(BaseEnv):
-    def __init__(self, branch_factor=5, length=10, shaping_term=0):
+    def __init__(self, branch_factor=3, length=10, shaping_term=0):
         self.branch_factor = branch_factor
         self.shaping_term = shaping_term
 

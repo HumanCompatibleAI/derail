@@ -17,7 +17,7 @@ class QuadraticEnv(BaseEnv):
         self.bounds = bounds
 
         self.observation_space = Box(low=-bounds, high=bounds, shape=(5,))
-        self.action_space = Box(low=-bounds, high=bounds, shape=(1,))
+        self.action_space = Box(low=-np.inf, high=np.inf, shape=(1,))
 
         super().__init__()
 
@@ -29,13 +29,14 @@ class QuadraticEnv(BaseEnv):
     def reward_fn(self, state, act, next_state):
         x, y, a, b, c = next_state
         target = a * x ** 2 + b * x + c
-        err = np.abs(y - target)
+        # err = np.abs(y - target)
+        err = (y - target) ** 2
         return (-1) * err
 
     def transition_fn(self, state, action):
         x, y, a, b, c = state
         next_x = x + self.dx
-        next_y = np.clip(y + action, -self.bounds, self.bounds)
+        next_y = np.clip(y + action, -self.bounds, self.bounds).squeeze()
         return np.array([next_x, next_y, a, b, c])
 
 

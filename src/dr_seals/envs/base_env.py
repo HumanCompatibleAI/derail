@@ -26,7 +26,7 @@ class BaseEnv(gym.Env):
         return self.ob_from_state(self.state)
 
     def step(self, act):
-        assert act in self.action_space
+        assert act in self.action_space, f'{act} not in {self.action_space}'
 
         old_state = self.state
         self.state = self.transition_fn(self.state, act)
