@@ -1,8 +1,7 @@
 import itertools
 
 import gym
-from gym.spaces import Discrete, MultiDiscrete, Box
-from gym.utils import seeding
+from gym.spaces import Box
 import numpy as np
 
 from derail.envs.base_env import BaseEnv
@@ -31,7 +30,7 @@ class NoisyObsEnv(BaseEnv):
 
     def sample_initial_state(self):
         n = self.size
-        corners = np.array([[0, 0], [n - 1, 0], [0, n - 1], [n - 1, n - 1],])
+        corners = np.array([[0, 0], [n - 1, 0], [0, n - 1], [n - 1, n - 1]])
         return corners[np.random.randint(4)]
 
     def reward_fn(self, state, act, next_state):

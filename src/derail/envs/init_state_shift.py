@@ -1,8 +1,6 @@
 from functools import partial
 
 import gym
-from gym.spaces import Discrete, MultiDiscrete, Box
-from gym.utils import seeding
 import numpy as np
 
 from derail.envs.base_env import BaseEnv

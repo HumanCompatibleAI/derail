@@ -1,6 +1,5 @@
 import gym
-from gym.spaces import Discrete, MultiDiscrete, Box
-from gym.utils import seeding
+from gym.spaces import Box
 import numpy as np
 
 from derail.envs.base_env import BaseEnv
@@ -25,8 +24,8 @@ class RandomGoalEnv(BaseEnv):
 
         x_dist = self.np_random.randint(self.distance)
         y_dist = self.distance - x_dist
-        random_signs = lambda shape: 2 * self.np_random.randint(2, size=shape) - 1
-        goal = pos + random_signs(2) * (x_dist, y_dist)
+        random_signs = 2 * self.np_random.randint(2, size=2) - 1
+        goal = pos + random_signs * (x_dist, y_dist)
 
         return np.concatenate([pos, goal])
 
