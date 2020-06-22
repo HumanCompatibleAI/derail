@@ -185,7 +185,7 @@ TASKS = {
         expert_fn=get_hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
-    "random_goal": SimpleTask(env_name="RandomGoal", expert_fn=get_random_goal_expert,),
+    "proc_goal": SimpleTask(env_name="ProcGoal", expert_fn=get_proc_goal_expert,),
     "sort": SimpleTask(env_name="Sort", expert_fn=get_selectionsort_expert,),
 }
 
@@ -225,7 +225,7 @@ def is_compatible(task_name, algo_name):
         "noisy_obs",
         "largest_sum",
         "parabola",
-        "random_goal",
+        "proc_goal",
     ]
     needs_discrete_algos = ["max_ent_irl", "mce_irl"]
     if algo_name in needs_discrete_algos and any(

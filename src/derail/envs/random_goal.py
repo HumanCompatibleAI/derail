@@ -10,7 +10,7 @@ from derail.utils import (
 )
 
 
-class RandomGoalEnv(BaseEnv):
+class ProcGoalEnv(BaseEnv):
     def __init__(self, bounds=100, distance=10):
         self.bounds = bounds
         self.distance = distance
@@ -38,7 +38,7 @@ class RandomGoalEnv(BaseEnv):
         return np.concatenate([next_pos, goal])
 
 
-def get_random_goal_expert(env):
+def get_proc_goal_expert(env):
     def predict_fn(ob, state=None, deterministic=False):
         pos, goal = ob[:2], ob[2:]
         dx, dy = goal - pos
@@ -60,7 +60,7 @@ def get_random_goal_expert(env):
 _horizon_v0 = 20
 
 gym.register(
-    id=f"seals/RandomGoal-v0",
-    entry_point=f"derail.envs:RandomGoalEnv",
+    id=f"seals/ProcGoal-v0",
+    entry_point=f"derail.envs:ProcGoalEnv",
     max_episode_steps=_horizon_v0,
 )
