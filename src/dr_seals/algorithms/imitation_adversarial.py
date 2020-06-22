@@ -97,8 +97,8 @@ def adversarial_learning(
             )
 
         # Train disc
-        for _ in range(n_updates):
-            disc_minibatch_size = disc_batch_size // n_updates
+        for _ in range(updates_per_batch):
+            disc_minibatch_size = disc_batch_size // updates_per_batch
             half_minibatch = disc_minibatch_size // 2
 
             gen_samples = gen_replay_buffer.sample(half_minibatch)
