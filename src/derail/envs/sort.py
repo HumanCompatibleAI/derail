@@ -1,48 +1,61 @@
-import gym
-from gym.spaces import MultiDiscrete, Box
+"""Environment to sort a list using swap actions."""
+
+from gym import spaces
 import numpy as np
 
-from derail.envs.base_env import BaseEnv
-
-from derail.utils import LightweightRLModel
+from derail.envs import base_envs
 
 
-class SortEnv(BaseEnv):
-    def __init__(self, length=4):
-        self.length = length
+class SortEnv(base_envs.ResettableMDP):
+    """Environment to sort a list using swap actions."""
 
-        self.observation_space = Box(low=0, high=1.0, shape=(length,))
-        self.action_space = MultiDiscrete([length, length])
+    def __init__(self, length: int = 4):
+        """Constructs environment.
 
-        super().__init__()
+        The initial state is a vector x sampled uniformly from
+        [0,1]**L, with actions a = (i,j) swapping x_i and x_j.  The
+        reward is given according to the number of elements in the
+        correct position.  To perform well, the learned policy must
+        compare elements, otherwise it will not generalize to all
+        possible randomly selected initial states.
+        """
+        self._length = length
 
-    def sample_initial_state(self):
-        return self.np_random.random(size=self.length)
+        super().__init__(
+            state_space=spaces.Box(low=0, high=1.0, shape=(length,)),
+            action_space=spaces.MultiDiscrete([length, length]),
+        )
 
-    def reward_fn(self, state, act, next_state):
+    def terminal(self, state: np.ndarray, n_actions_taken: int) -> bool:
+        """Always returns False."""
+        return False
+
+    def initial_state(self):
+        """Sample random vector uniformly in [0, 1]**L."""
+        return self.rand_state.random(size=self._length)
+
+    def reward(
+        self, state: np.ndarray, action: np.ndarray, new_state: np.ndarray,
+    ) -> float:
+        """Rewards fully sorted lists, and new correct positions."""
+        # This is not meant to be a potential shaping in the formal sense,
+        # as it changes the trajectory returns (since we do not return
+        # a fixed-potential state at termination).
         num_correct = self._num_correct_positions(state)
-        next_num_correct = self._num_correct_positions(next_state)
-        potential_diff = next_num_correct - num_correct
+        new_num_correct = self._num_correct_positions(new_state)
+        potential_diff = new_num_correct - num_correct
 
-        return int(self._is_sorted(next_state)) + potential_diff
+        return float(self._is_sorted(new_state)) + potential_diff
 
-    def transition_fn(self, state, action):
-        next_state = state.copy()
+    def transition(self, state: np.ndarray, action: np.ndarray) -> float:
+        """Action a = (i, j) swaps elements in positions i and j."""
+        new_state = state.copy()
         i, j = action
-        next_state[[i, j]] = next_state[[j, i]]
-        return next_state
+        new_state[[i, j]] = new_state[[j, i]]
+        return new_state
 
-    def _is_sorted(self, arr):
+    def _is_sorted(self, arr: np.ndarray) -> bool:
         return list(arr) == sorted(arr)
 
-    def _num_correct_positions(self, arr):
+    def _num_correct_positions(self, arr: np.ndarray) -> int:
         return np.sum(arr == sorted(arr))
-
-
-_horizon_v0 = 6
-
-gym.register(
-    id=f"seals/Sort-v0",
-    entry_point=f"derail.envs:SortEnv",
-    max_episode_steps=_horizon_v0,
-)

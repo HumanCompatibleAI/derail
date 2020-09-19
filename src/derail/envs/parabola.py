@@ -1,50 +1,59 @@
-"""Environment testing for generalization in continuous observation and action spaces."""
+"""Environment testing for generalization in continuous spaces."""
 
-import gym
-from gym.spaces import Box
+from gym import spaces
 import numpy as np
 
-from derail.envs.base_env import BaseEnv
-
-from derail.utils import (
-    get_raw_env,
-    LightweightRLModel,
-)
+from derail.envs import base_envs
 
 
-class ParabolaEnv(BaseEnv):
-    def __init__(self, dx=0.05, bounds=5):
-        self.dx = dx
-        self.bounds = bounds
+class ParabolaEnv(base_envs.ResettableMDP):
+    """Environment to mimic parabola curves.
 
-        self.observation_space = Box(low=-bounds, high=bounds, shape=(5,))
-        self.action_space = Box(low=-np.inf, high=np.inf, shape=(1,))
+    This environment tests algorithms' ability to learn in continuous
+    action spaces, a challenge for Q-learning methods in particular.
+    The goal is to mimic the path of a parabola p(x) = A*x**2 + B*x +
+    C, where A, B and C are constants sampled uniformly from [-1, 1]
+    at the start of the episode.
+    """
 
-        super().__init__()
+    def __init__(self, x_step: float = 0.05, bounds: float = 5):
+        """Construct environment.
 
-    def sample_initial_state(self):
-        a, b, c = -1 + 2 * self.np_random.rand(3)
+        Args:
+            x_step: x position difference between timesteps.
+            bounds: limits coordinates, useful for keeping rewards in
+                a small bounded range.
+        """
+        self._x_step = x_step
+        self._bounds = bounds
+
+        state_high = np.array([bounds, bounds, 1.0, 1.0, 1.0])
+        state_low = (-1) * state_high
+
+        super().__init__(
+            state_space=spaces.Box(low=state_low, high=state_high),
+            action_space=spaces.Box(low=-np.inf, high=np.inf, shape=(1,)),
+        )
+
+    def terminal(self, state: int, n_actions_taken: int) -> bool:
+        """Always returns False."""
+        return False
+
+    def initial_state(self) -> np.ndarray:
+        """Get state by sampling a random parabola."""
+        a, b, c = -1 + 2 * self.rand_state.rand(3)
         x, y = 0, c
         return np.array([x, y, a, b, c])
 
-    def reward_fn(self, state, act, next_state):
-        x, y, a, b, c = next_state
-        target = a * x ** 2 + b * x + c
-        # err = np.abs(y - target)
-        err = (y - target) ** 2
-        return (-1) * err
-
-    def transition_fn(self, state, action):
+    def reward(self, state: np.ndarray, action: int, new_state: np.ndarray) -> float:
+        """Negative squared vertical distance from parabola."""
         x, y, a, b, c = state
-        next_x = x + self.dx
-        next_y = np.clip(y + action, -self.bounds, self.bounds).squeeze()
+        target_y = a * x ** 2 + b * x + c
+        return (-1) * (y - target_y) ** 2
+
+    def transition(self, state: np.ndarray, action: int) -> np.ndarray:
+        """Update x according to x_step and y according to action."""
+        x, y, a, b, c = state
+        next_x = np.clip(x + self._x_step, -self._bounds, self._bounds)
+        next_y = np.clip(y + action, -self._bounds, self._bounds)
         return np.array([next_x, next_y, a, b, c])
-
-
-_horizon_v0 = 20
-
-gym.register(
-    id=f"seals/Parabola-v0",
-    entry_point=f"derail.envs:ParabolaEnv",
-    max_episode_steps=_horizon_v0,
-)

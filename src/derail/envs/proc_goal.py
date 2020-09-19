@@ -1,47 +1,63 @@
-import gym
-from gym.spaces import Box
+"""Large gridworld with random agent and goal position."""
+
+from gym import spaces
 import numpy as np
 
-from derail.envs.base_env import BaseEnv
-
-from derail.utils import (
-    grid_transition_fn,
-    LightweightRLModel,
-)
+from derail.envs import base_envs
+from derail import utils
 
 
-class ProcGoalEnv(BaseEnv):
-    def __init__(self, bounds=100, distance=10):
-        self.bounds = bounds
-        self.distance = distance
+class ProcGoalEnv(base_envs.ResettableMDP):
+    """Large gridworld with random agent and goal position.
 
-        self.observation_space = Box(low=-np.inf, high=np.inf, shape=(4,))
+    In this task, the agent starts at a random position in a large
+    grid, and must navigate to a goal randomly placed in a
+    neighborhood around the agent.  The observation is a 4-dimensional
+    vector containing the (x,y) coordinates of the agent and the goal.
+    The reward at each timestep is the negative Manhattan distance
+    between the two positions.  With a large enough grid, generalizing
+    is necessary to achieve good performance, since most initial
+    states will be unseen.
+    """
 
-        super().__init__(num_actions=5)
+    def __init__(self, bounds: int = 100, distance: int = 10):
+        """Constructs environment.
 
-    def sample_initial_state(self):
-        pos = self.np_random.randint(low=-self.bounds, high=self.bounds, size=(2,))
+        Args:
+            bounds: the absolute values of the coordinates of the initial agent
+                position are bounded by `bounds`. Increasing the value might make
+                generalization harder.
+            distance: initial distance between agent and goal.
+        """
+        self._bounds = bounds
+        self._distance = distance
 
-        x_dist = self.np_random.randint(self.distance)
-        y_dist = self.distance - x_dist
-        random_signs = 2 * self.np_random.randint(2, size=2) - 1
+        super().__init__(
+            state_space=spaces.Box(low=-np.inf, high=np.inf, shape=(4,)),
+            action_space=spaces.Discrete(5),
+        )
+
+    def terminal(self, state: np.ndarray, n_actions_taken: int) -> bool:
+        """Always returns False."""
+        return False
+
+    def initial_state(self) -> np.ndarray:
+        """Samples random agent position and random goal."""
+        pos = self.rand_state.randint(low=-self._bounds, high=self._bounds, size=(2,))
+
+        x_dist = self.rand_state.randint(self._distance)
+        y_dist = self._distance - x_dist
+        random_signs = 2 * self.rand_state.randint(2, size=2) - 1
         goal = pos + random_signs * (x_dist, y_dist)
 
-        return np.concatenate([pos, goal])
+        return np.concatenate([pos, goal]).astype(self.observation_space.dtype)
 
-    def reward_fn(self, state, act, next_state):
-        return (-1) * np.sum(np.abs(next_state[2:] - next_state[:2]))
+    def reward(self, state: np.ndarray, action: int, new_state: np.ndarray) -> float:
+        """Negative L1 distance to goal."""
+        return (-1) * np.sum(np.abs(state[2:] - state[:2]))
 
-    def transition_fn(self, state, action):
+    def transition(self, state: np.ndarray, action: int) -> np.ndarray:
+        """Returns next state according to grid."""
         pos, goal = state[:2], state[2:]
-        next_pos = grid_transition_fn(pos, action)
+        next_pos = utils.grid_transition_fn(pos, action)
         return np.concatenate([next_pos, goal])
-
-
-_horizon_v0 = 20
-
-gym.register(
-    id=f"seals/ProcGoal-v0",
-    entry_point=f"derail.envs:ProcGoalEnv",
-    max_episode_steps=_horizon_v0,
-)

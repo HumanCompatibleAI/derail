@@ -158,8 +158,8 @@ TASKS = {
         eval_policy_fn=tabular_eval_policy,
     ),
     "init_state_shift": SimpleTask(
-        env_name="InitStateShiftLearner",
-        expert_env_name="InitStateShiftExpert",
+        env_name="InitShiftTest",
+        expert_env_name="InitShiftTrain",
         expert_fn=get_hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),

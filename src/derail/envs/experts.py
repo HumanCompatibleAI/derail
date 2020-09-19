@@ -7,7 +7,7 @@ def get_noisyobs_expert(venv):
 
     def predict_fn(ob, state=None, deterministic=False):
         pos = ob[:2]
-        dx, dy = env.goal - pos
+        dx, dy = env._goal - pos
 
         conditions = [
             dx > 0,
@@ -115,7 +115,7 @@ def get_parabola_expert(venv):
 
     def predict_fn(ob, state=None, deterministic=False):
         x, y, a, b, c = ob
-        x += env.dx
+        x += env._x_step
         target = a * x ** 2 + b * x + c
         act = target - y
         act = np.array([act])

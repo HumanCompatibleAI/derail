@@ -1,57 +1,41 @@
-"Branching MDP environment, tests for exploration."
+"""Hard-exploration environment."""
 
 import itertools
 
-import gym
 import numpy as np
 
-from derail.envs.base_env import BaseEnv
+from derail.envs import base_envs
 
 
-class BranchingEnv(BaseEnv):
-    """Simple hard-exploration environment.
+class BranchingEnv(base_envs.TabularModelMDP):
+    """Long branching environment requiring exploration.
 
-    Branching tests LfH algorithms' exploration ability. The agent must
-    traverse a specific path of length `L` to reach a final goal, with `B`
-    choices at each step. Wrong actions lead to dead-ends with zero reward.
+    The agent must traverse a specific path of length L to reach a
+    final goal, with B choices at each step. Wrong actions lead to
+    dead-ends with zero reward.
     """
 
-    def __init__(self, branch_factor=2, length=10, shaping_term=0):
-        self.branch_factor = branch_factor
-        self.shaping_term = shaping_term
+    def __init__(self, branch_factor: int = 2, length: int = 10):
+        """Construct environment.
 
+        Args:
+            branch_factor: number of actions at each state.
+            length: path length from initial state to goal.
+        """
         nS = 1 + branch_factor * length
         nA = branch_factor
 
-        super().__init__(num_states=nS, num_actions=nA)
+        def get_next(state: int, action: int) -> int:
+            can_move = state % branch_factor == 0 and state != nS - 1
+            return state + (action + 1) * can_move
 
-        self.transition_matrix = np.zeros((nS, nA, nS))
-        for ob, act in itertools.product(range(nS), range(nA)):
-            self.transition_matrix[ob, act, self._get_next(ob, act)] = 1.0
+        transition_matrix = np.zeros((nS, nA, nS))
+        for state, action in itertools.product(range(nS), range(nA)):
+            transition_matrix[state, action, get_next(state, action)] = 1.0
 
-    def _get_next(self, state, action):
-        b = self.branch_factor
-        n = self.observation_space.n
+        reward_matrix = np.zeros((nS,))
+        reward_matrix[-1] = 1.0
 
-        if state % b == 0 and state != n - 1:
-            return state + (action + 1)
-        else:
-            return state
-
-    def reward_fn(self, state, act, next_state):
-        """Return reward value R(s, a, s')."""
-        num_states = self.observation_space.n
-        goal_reward = int(next_state == num_states - 1)
-        shaping_reward = self.shaping_term * (
-            state % self.branch_factor == 0 and next_state % self.branch_factor == 0
+        super().__init__(
+            transition_matrix=transition_matrix, reward_matrix=reward_matrix,
         )
-        return goal_reward + shaping_reward
-
-
-_horizon_v0 = 10
-
-gym.register(
-    id=f"seals/Branching-v0",
-    entry_point=f"derail.envs:BranchingEnv",
-    max_episode_steps=_horizon_v0,
-)
