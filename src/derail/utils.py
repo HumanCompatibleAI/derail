@@ -20,6 +20,7 @@ def get_timestamp():
 
 
 def sample_distribution(p, random=None):
+    """Samples an integer with probabilities given by p."""
     if random is None:
         random = np.random
     return random.choice(np.arange(len(p)), p=p)

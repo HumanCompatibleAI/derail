@@ -7,7 +7,7 @@ from derail.envs.base_env import BaseEnv
 
 
 class RiskyPathEnv(BaseEnv):
-    """
+    """Environment with two paths to a goal: one safe and one risky.
 
     Many LfH algorithms are derived from Maximum Entropy Inverse Reinforcement
     Learning (Ziebart et. al, 2008), which models the demonstrator as producing

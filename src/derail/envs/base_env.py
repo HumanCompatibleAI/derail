@@ -30,15 +30,15 @@ class BaseEnv(gym.Env):
         self.state = self.sample_initial_state()
         return self.ob_from_state(self.state)
 
-    def step(self, act):
+    def step(self, action):
         """Advance to next timestep using provided action."""
-        assert act in self.action_space, f"{act} not in {self.action_space}"
+        assert action in self.action_space, f"{action} not in {self.action_space}"
 
         old_state = self.state
-        self.state = self.transition_fn(self.state, act)
+        self.state = self.transition_fn(self.state, action)
         next_ob = self.ob_from_state(self.state)
 
-        reward = self.reward_fn(old_state, act, self.state)
+        reward = self.reward_fn(old_state, action, self.state)
 
         done = self.termination_fn(self.state)
         info = {}
