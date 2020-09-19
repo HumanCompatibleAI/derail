@@ -7,6 +7,7 @@ from derail.algorithms.preferences import preferences
 from derail.algorithms.stable_baselines import (
     behavioral_cloning,
     stable_gail,
+    stable_gail_2,
 )
 from derail.algorithms.tabular_irl import (
     max_ent_irl,

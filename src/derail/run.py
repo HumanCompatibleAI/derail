@@ -198,6 +198,7 @@ ALGOS = {
     "imitation_gail": imitation_gail,
     "behavioral_cloning": behavioral_cloning,
     "stable_gail": stable_gail,
+    "stable_gail_2": stable_gail_2,
     "fu_gail": fu_gail,
     "fu_airl": fu_airl,
     "preferences": preferences,
