@@ -38,25 +38,6 @@ class ProcGoalEnv(BaseEnv):
         return np.concatenate([next_pos, goal])
 
 
-def get_proc_goal_expert(env):
-    def predict_fn(ob, state=None, deterministic=False):
-        pos, goal = ob[:2], ob[2:]
-        dx, dy = goal - pos
-
-        conditions = [
-            dx > 0,
-            dy > 0,
-            dx < 0,
-            dy < 0,
-            True,
-        ]
-        act = np.argmax(conditions)
-
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=env)
-
-
 _horizon_v0 = 20
 
 gym.register(

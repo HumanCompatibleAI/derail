@@ -57,27 +57,6 @@ class EarlyTerminationEnv(BaseEnv):
         return self.state == self.observation_space.n - 1
 
 
-def get_early_term_pos_expert(venv, horizon=10):
-    def predict_fn(ob, state=None, deterministic=False):
-        if state is None:
-            state = 0
-        t = state
-
-        act = int(horizon - t <= 2)
-
-        state = t + 1
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
-
-def get_early_term_neg_expert(venv):
-    def predict_fn(ob, state=None, deterministic=False):
-        act = 1
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
 
 EarlyTermPosEnv = partial(EarlyTerminationEnv, is_reward_positive=True)
 EarlyTermNegEnv = partial(EarlyTerminationEnv, is_reward_positive=False)

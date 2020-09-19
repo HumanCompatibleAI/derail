@@ -26,12 +26,6 @@ class LargestSumEnv(BaseEnv):
         return state
 
 
-def get_largest_sum_expert(venv):
-    def predict_fn(ob, state=None, deterministic=False):
-        return int(np.sum(ob[::2]) < np.sum(ob[1::2])), state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
 
 _horizon_v0 = 1
 

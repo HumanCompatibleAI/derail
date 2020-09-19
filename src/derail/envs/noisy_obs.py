@@ -54,25 +54,6 @@ class NoisyObsEnv(BaseEnv):
         return ob[:2]
 
 
-def get_noisyobs_expert(venv):
-    env = get_raw_env(venv)
-
-    def predict_fn(ob, state=None, deterministic=False):
-        pos = ob[:2]
-        dx, dy = env.goal - pos
-
-        conditions = [
-            dx > 0,
-            dy > 0,
-            dx < 0,
-            dy < 0,
-            True,
-        ]
-        act = np.argmax(conditions)
-
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
 
 _horizon_v0 = 15

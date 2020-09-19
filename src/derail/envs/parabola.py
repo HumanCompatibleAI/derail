@@ -41,20 +41,6 @@ class ParabolaEnv(BaseEnv):
         return np.array([next_x, next_y, a, b, c])
 
 
-def get_parabola_expert(venv):
-    env = get_raw_env(venv)
-
-    def predict_fn(ob, state=None, deterministic=False):
-        x, y, a, b, c = ob
-        x += env.dx
-        target = a * x ** 2 + b * x + c
-        act = target - y
-        act = np.array([act])
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
-
 _horizon_v0 = 20
 
 gym.register(

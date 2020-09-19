@@ -20,6 +20,7 @@ from derail.utils import (
 )
 
 from derail.envs import *
+from derail.envs.experts import *
 from derail.algorithms import *
 
 
