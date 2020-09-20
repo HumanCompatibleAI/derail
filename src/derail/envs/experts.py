@@ -2,7 +2,7 @@ import numpy as np
 
 from derail.utils import get_raw_env, LightweightRLModel
 
-def get_noisyobs_expert(venv):
+def get_noisyobs_expert(venv, **kwargs):
     env = get_raw_env(venv)
 
     def predict_fn(ob, state=None, deterministic=False):
@@ -23,7 +23,7 @@ def get_noisyobs_expert(venv):
     return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
 
-def get_proc_goal_expert(env):
+def get_proc_goal_expert(env, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         pos, goal = ob[:2], ob[2:]
         dx, dy = goal - pos
@@ -42,7 +42,7 @@ def get_proc_goal_expert(env):
     return LightweightRLModel(predict_fn=predict_fn, env=env)
 
 
-def get_largest_sum_expert(venv):
+def get_largest_sum_expert(venv, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         return int(np.sum(ob[::2]) < np.sum(ob[1::2])), state
 
@@ -50,7 +50,7 @@ def get_largest_sum_expert(venv):
 
 
 
-def get_selectionsort_expert(env=None):
+def get_selectionsort_expert(env=None, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         if state is None:
             state = 0
@@ -72,7 +72,7 @@ def get_selectionsort_expert(env=None):
     return LightweightRLModel(predict_fn=predict_fn, env=env)
 
 
-def get_insertionsort_expert(env=None):
+def get_insertionsort_expert(env=None, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         act = None
         for i in range(len(ob) - 1):
@@ -88,7 +88,7 @@ def get_insertionsort_expert(env=None):
     return LightweightRLModel(predict_fn=predict_fn, env=env)
 
 
-def get_early_term_pos_expert(venv, horizon=10):
+def get_early_term_pos_expert(venv, horizon=10, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         if state is None:
             state = 0
@@ -102,7 +102,7 @@ def get_early_term_pos_expert(venv, horizon=10):
     return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
 
-def get_early_term_neg_expert(venv):
+def get_early_term_neg_expert(venv, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         act = 1
         return act, state
@@ -110,7 +110,7 @@ def get_early_term_neg_expert(venv):
     return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
 
-def get_parabola_expert(venv):
+def get_parabola_expert(venv, **kwargs):
     env = get_raw_env(venv)
 
     def predict_fn(ob, state=None, deterministic=False):

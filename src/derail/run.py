@@ -103,7 +103,7 @@ class SimpleTask:
 
     def run(self, algo, **algo_kwargs):
         # XXX: hack, remove this later
-        self.expert_fn = train_rl
+        # self.expert_fn = train_rl
 
         expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
         expert_env = DummyVecEnv([lambda: expert_env])

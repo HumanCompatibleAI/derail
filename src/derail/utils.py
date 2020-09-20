@@ -90,7 +90,7 @@ def tabular_eval_policy(policy, env, **kwargs):
 
 
 # todo: remove code duplication
-def ti_hard_value_fn(venv, discount=0.9):
+def ti_hard_value_fn(venv, discount=0.9, num_iter=200):
     """Time-independent value function"""
 
     env = get_raw_env(venv)
@@ -105,9 +105,7 @@ def ti_hard_value_fn(venv, discount=0.9):
     dynamics = env.transition_matrix
 
     Q = np.empty((nS, nA))
-    V = np.empty((nS,))
-
-    V[-1] = np.zeros(nS)
+    V = np.zeros((nS,))
 
     for _ in range(num_iter):
         for s in range(nS):

@@ -17,6 +17,7 @@ from derail.utils import (
     get_random_policy,
     sample_trajectories,
     get_raw_env,
+    ti_hard_value_fn,
 )
 
 
@@ -153,31 +154,11 @@ def get_eval_trajectories_fn(eval_fn):
     return eval_trajectories_fn
 
 
-def extract_eval_fn_from_env(venv):
-    env = get_raw_env(venv)
-    if hasattr(env, "eval_trajectory_fn"):
-        return env.eval_trajectory_fn
-    elif hasattr(env, "reward"):
-        # return get_eval_path_fn_from_reward(env.reward, env.state_from_ob)
-        return get_eval_path_fn_from_reward(env.reward, lambda x : x)
+def get_obs_acts_next_obs(path):
+    if isinstance(path, Segment):
+        return zip(path.obs, path.acts, path.next_obs)
     else:
-        raise Exception("No eval_trajectory_fn in environment")
-
-
-def get_eval_path_fn_from_reward(reward_fn, state_fn):
-    def get_obs_acts_next_obs(path):
-        if isinstance(path, Segment):
-            return zip(path.obs, path.acts, path.next_obs)
-        else:
-            return zip(path.obs[:-1], path.acts, path.obs[1:])
-
-    def eval_path_fn(path):
-        return sum(
-            reward_fn(state_fn(ob), ac, state_fn(next_ob))
-            for ob, ac, next_ob in get_obs_acts_next_obs(path)
-        )
-
-    return eval_path_fn
+        return zip(path.obs[:-1], path.acts, path.obs[1:])
 
 
 def get_reward_fn_from_model(rn):
@@ -191,22 +172,55 @@ def get_reward_fn_from_model(rn):
     return get_reward_fn
 
 
-def get_value_fn(model):
+def get_value_fn(model, venv):
     if isinstance(model, ActorCriticRLModel):
         return model.value
-    elif isinstance(model, LightweightRLModel):
-        raise Exception("not implemented")
-        # value_matrix = ti_hard_value_fn(model, )
+    else:
+        value_matrix = ti_hard_value_fn(venv)
+        return (lambda ob : value_matrix[ob])
 
 
-def value_eval_trajectory_fn(value_fn):
-    def value_eval_trajectory(trj):
-        obs_0 = trj.obs[0]
-        obs_f = trj.next_obs[-1]
+def value_diff_eval_path_fn(value_fn):
+    def eval_fn(path):
+        obs_0 = path.obs[0]
+        obs_f = path.next_obs[-1]
         return value_fn([obs_f]) - value_fn([obs_0])
     
-    return value_eval_trajectory
+    return eval_fn
 
+def cloning_eval_path_fn(model):
+    if isinstance(model, ActorCriticRLModel):
+        def eval_fn(path):
+            action_probs = model.action_probability(path.obs)
+            return action_probs @ path.acts
+    else:
+        def eval_fn(path):
+            expert_actions = np.array([model.predict(ob)[0] for ob in path.obs])
+            return np.sum(expert_actions == path.acts)
+
+    return eval_fn
+
+def reward_eval_path_fn(venv):
+    env = get_raw_env(venv)
+    if hasattr(env, "eval_trajectory_fn"):
+        return env.eval_trajectory_fn
+    elif hasattr(env, "reward"):
+        return eval_fn_from_reward(env.reward)
+    else:
+        raise Exception("No eval_trajectory_fn in environment")
+
+
+def eval_fn_from_reward(reward_fn, state_fn=None):
+    if state_fn is None:
+        state_fn = lambda x : x
+
+    def eval_path_fn(path):
+        return sum(
+            reward_fn(state_fn(ob), ac, state_fn(next_ob))
+            for ob, ac, next_ob in get_obs_acts_next_obs(path)
+        )
+
+    return eval_path_fn
 
 
 def preferences_2(
@@ -224,11 +238,12 @@ def preferences_2(
 ):
 
     if evaluate_trajectories_fn is None:
-        eval_fn = extract_eval_fn_from_env(venv)
-        evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
+        reward_eval_fn = reward_eval_path_fn(venv)
+        evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
 
-    expert_value_fn = get_value_fn(expert)
-    eval_fn = value_eval_trajectory_fn(expert_value_fn)
+    cloning_eval_fn = cloning_eval_path_fn(expert)
+    eval_fn = lambda path : reward_eval_fn(path) + cloning_eval_fn(path)
+
     evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
 
     # Create reward model
