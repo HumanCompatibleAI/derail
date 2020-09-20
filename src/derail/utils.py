@@ -1,5 +1,6 @@
 from datetime import datetime
 import functools
+import operator
 import time
 
 from gym.spaces import Discrete
@@ -13,7 +14,6 @@ from stable_baselines.common.evaluation import evaluate_policy
 from stable_baselines.common.policies import MlpPolicy
 
 from imitation.util.rollout import make_sample_until, generate_trajectories
-
 
 def get_timestamp():
     return datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
@@ -298,6 +298,14 @@ def render_trajectories(env, policy, n_episodes=5, dt=0.0):
 
     return None
 
+def prod(seq):
+    return functools.reduce(operator.mul, seq, 1)
+
+def get_num_actions(env):
+    if hasattr(env.action_space, 'n'):
+        return env.action_space.n
+    else:
+        return prod(env.action_space.nvec)
 
 class LightweightRLModel:
     def __init__(self, predict_fn, env=None):
@@ -318,6 +326,15 @@ class LightweightRLModel:
             return [action], [state]
         else:
             return action, state
+
+    def cross_entropy(self, ob, act):
+        nA = get_num_actions(self.env)
+        EPS = 1e-1
+        expert_act = self.predict(ob)
+        if np.all(act == expert_act):
+            return np.log(1 - EPS + EPS / nA)
+        else:
+            return np.log(EPS / nA)
 
     def __call__(self, ob):
         act, _ = self.predict(ob)

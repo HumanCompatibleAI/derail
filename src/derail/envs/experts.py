@@ -23,7 +23,7 @@ def get_noisyobs_expert(venv, **kwargs):
     return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
 
-def get_proc_goal_expert(env, **kwargs):
+def get_proc_goal_expert(venv, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         pos, goal = ob[:2], ob[2:]
         dx, dy = goal - pos
@@ -39,7 +39,7 @@ def get_proc_goal_expert(env, **kwargs):
 
         return act, state
 
-    return LightweightRLModel(predict_fn=predict_fn, env=env)
+    return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
 
 def get_largest_sum_expert(venv, **kwargs):
@@ -47,7 +47,6 @@ def get_largest_sum_expert(venv, **kwargs):
         return int(np.sum(ob[::2]) < np.sum(ob[1::2])), state
 
     return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
 
 
 def get_selectionsort_expert(env=None, **kwargs):
