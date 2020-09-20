@@ -124,6 +124,7 @@ def get_parabola_expert(venv, **kwargs):
         return ((act - mean)**2) / (2 * stddev**2)
 
     def predict_fn(ob, state=None, deterministic=False):
+        y = ob[1]
         act = get_target(ob) - y
         act = np.array([act])
         return act, state
