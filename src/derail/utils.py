@@ -115,6 +115,32 @@ def ti_hard_value_fn(venv, discount=0.9, num_iter=200):
 
     return V
 
+def ti_soft_value_fn(venv, discount=0.9, beta=10, num_iter=200):
+    """Time-independent value function"""
+
+    env = get_raw_env(venv)
+
+    horizon = get_horizon(venv)
+    nS = env.observation_space.n
+    nA = env.action_space.n
+
+    R = get_reward_matrix(env)
+    R = force_shape(R, (nS, nA, nS))
+
+    T = env.transition_matrix
+
+    Q = np.empty((nS, nA))
+    V = np.zeros((nS,))
+
+    for _ in range(num_iter):
+        Q = np.sum(T * R, axis=2) + discount * np.tensordot(T, V, axes=(2, 0))
+        V = logsumexp(beta * Q, axis=1) / beta
+
+    policy = np.exp(beta * (Q - V[:, None]))
+    policy /= policy.sum(axis=1, keepdims=True)
+
+    return policy, {'V' : V, 'Q' : Q}
+
 def hard_value_iteration(venv, discount=1.0):
     env = get_raw_env(venv)
 
@@ -143,7 +169,7 @@ def hard_value_iteration(venv, discount=1.0):
     return policy
 
 
-def soft_value_iteration(venv):
+def soft_value_iteration(venv, beta=10):
     env = get_raw_env(venv)
 
     horizon = get_horizon(venv)

@@ -113,14 +113,24 @@ def get_early_term_neg_expert(venv, **kwargs):
 def get_parabola_expert(venv, **kwargs):
     env = get_raw_env(venv)
 
-    def predict_fn(ob, state=None, deterministic=False):
+    def get_target(ob):
         x, y, a, b, c = ob
         x += env._x_step
         target = a * x ** 2 + b * x + c
-        act = target - y
+        return target
+
+    def cross_entropy(ob, act):
+        mean = get_target(ob)
+        stddev = env._x_step
+        return ((act - mean)**2) / (2 * stddev**2)
+
+    def predict_fn(ob, state=None, deterministic=False):
+        act = get_target(ob) - y
         act = np.array([act])
         return act, state
 
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
+    expert = LightweightRLModel(predict_fn=predict_fn, env=venv)
+    setattr(expert, 'cross_entropy', cross_entropy)
+    return expert
 
 

@@ -18,6 +18,7 @@ from derail.utils import (
     sample_trajectories,
     get_raw_env,
     ti_hard_value_fn,
+    ti_soft_value_fn,
 )
 
 
@@ -202,6 +203,18 @@ def cloning_eval_path_fn(model):
 
     return eval_fn
 
+def soft_expert_cloning_eval_fn(expert, venv):
+    if hasattr(expert, 'cross_entropy'):
+        def eval_fn(path):
+            return np.sum([expert.cross_entropy(ob, act) for ob, act in zip(path.obs, path.acts)])
+    else:
+        policy, _ = ti_soft_value_fn(venv, beta=10)
+        def eval_fn(path):
+            action_probs = policy[path.obs, path.acts]
+            return np.sum(np.log(action_probs))
+
+    return eval_fn
+
 def reward_eval_path_fn(venv):
     env = get_raw_env(venv)
     if hasattr(env, "eval_trajectory_fn"):
@@ -243,7 +256,7 @@ def preferences_2(
         reward_eval_fn = reward_eval_path_fn(venv)
         evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
 
-    cloning_eval_fn = cloning_eval_path_fn(expert)
+    cloning_eval_fn = soft_expert_cloning_eval_fn(expert, venv)
     eval_fn = lambda path : reward_eval_fn(path) + cloning_eval_fn(path)
 
     evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
@@ -313,7 +326,6 @@ def preferences_2(
                 preferences_ph: preferences,
             },
         )
-
 
         # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
