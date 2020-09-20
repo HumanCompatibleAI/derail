@@ -188,11 +188,13 @@ def value_diff_eval_path_fn(value_fn):
     
     return eval_fn
 
+def one_hot(arr, n):
+    return np.eye(n)[arr]
+
 def cloning_eval_path_fn(model):
     if isinstance(model, ActorCriticRLModel):
         def eval_fn(path):
-            action_probs = model.action_probability(path.obs)
-            return action_probs @ path.acts
+            return model.action_probability(path.obs, actions=path.acts)
     else:
         def eval_fn(path):
             expert_actions = np.array([model.predict(ob)[0] for ob in path.obs])
@@ -311,6 +313,7 @@ def preferences_2(
                 preferences_ph: preferences,
             },
         )
+
 
         # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
