@@ -10,9 +10,10 @@ from stable_baselines.common.vec_env import DummyVecEnv
 
 from derail.utils import (
     get_expert_algo,
+    get_hard_mdp_expert,
+    get_ppo,
     get_random_policy,
     get_timestamp,
-    get_hard_mdp_expert,
     monte_carlo_eval_policy,
     ppo_algo,
     tabular_eval_policy,
@@ -101,6 +102,8 @@ class SimpleTask:
         self.callback_kwargs = dict()
 
     def run(self, algo, **algo_kwargs):
+        # XXX: hack, remove this later
+        self.expert_fn = get_ppo
 
         expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
         expert_env = DummyVecEnv([lambda: expert_env])
@@ -202,6 +205,7 @@ ALGOS = {
     "fu_gail": fu_gail,
     "fu_airl": fu_airl,
     "preferences": preferences,
+    "preferences_2": preferences_2,
     "airl": imitation_airl,
     "expert": get_expert_algo,
     "random": random_algo,

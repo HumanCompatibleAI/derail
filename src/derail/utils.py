@@ -90,7 +90,34 @@ def tabular_eval_policy(policy, env, **kwargs):
 
 
 # todo: remove code duplication
-def hard_value_iteration(venv):
+def ti_hard_value_fn(venv, discount=0.9):
+    """Time-independent value function"""
+
+    env = get_raw_env(venv)
+
+    horizon = get_horizon(venv)
+    nS = env.observation_space.n
+    nA = env.action_space.n
+
+    reward_matrix = get_reward_matrix(env)
+    reward_matrix = force_shape(reward_matrix, (nS, nA, nS))
+
+    dynamics = env.transition_matrix
+
+    Q = np.empty((nS, nA))
+    V = np.empty((nS,))
+
+    V[-1] = np.zeros(nS)
+
+    for _ in range(num_iter):
+        for s in range(nS):
+            for a in range(nA):
+                Q[s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + discount * V[:])
+        V = np.max(Q, axis=1)
+
+    return V
+
+def hard_value_iteration(venv, discount=1.0):
     env = get_raw_env(venv)
 
     horizon = get_horizon(venv)
@@ -110,7 +137,7 @@ def hard_value_iteration(venv):
     for t in reversed(range(horizon)):
         for s in range(nS):
             for a in range(nA):
-                Q[t, s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + V[t + 1, :])
+                Q[t, s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + discount * V[t + 1, :])
         V[t] = np.max(Q[t], axis=1)
 
     policy = np.eye(nA)[Q.argmax(axis=2)]

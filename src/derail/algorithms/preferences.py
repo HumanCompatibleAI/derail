@@ -7,6 +7,7 @@ import tensorflow as tf
 
 from stable_baselines.common.vec_env import DummyVecEnv, VecEnv
 from stable_baselines import PPO2
+from stable_baselines.common.base_class import ActorCriticRLModel
 from stable_baselines.common.policies import MlpPolicy
 
 from imitation.rewards.reward_net import BasicShapedRewardNet
@@ -145,24 +146,22 @@ def get_segments(trajectories):
     return segments
 
 
-def get_eval_trajectories_fn(venv):
-    eval_fn = get_eval_trajectory_fn_from_env(venv)
-
+def get_eval_trajectories_fn(eval_fn):
     def eval_trajectories_fn(trajectories):
-        returns = np.array([eval_fn(trj) for trj in trajectories])
-        return returns
+        return np.array([eval_fn(trj) for trj in trajectories])
 
     return eval_trajectories_fn
 
 
-def get_eval_trajectory_fn_from_env(venv):
+def extract_eval_fn_from_env(venv):
     env = get_raw_env(venv)
     if hasattr(env, "eval_trajectory_fn"):
         return env.eval_trajectory_fn
-    elif hasattr(env, "reward_fn"):
-        return get_eval_path_fn_from_reward(env.reward_fn, env.state_from_ob)
+    elif hasattr(env, "reward"):
+        # return get_eval_path_fn_from_reward(env.reward, env.state_from_ob)
+        return get_eval_path_fn_from_reward(env.reward, lambda x : x)
     else:
-        raise Error("No eval_trajectory_fn in environment")
+        raise Exception("No eval_trajectory_fn in environment")
 
 
 def get_eval_path_fn_from_reward(reward_fn, state_fn):
@@ -190,3 +189,124 @@ def get_reward_fn_from_model(rn):
         )
 
     return get_reward_fn
+
+
+def get_value_fn(model):
+    if isinstance(model, ActorCriticRLModel):
+        return model.value
+    elif isinstance(model, LightweightRLModel):
+        raise Exception("not implemented")
+        # value_matrix = ti_hard_value_fn(model, )
+
+
+def value_eval_trajectory_fn(value_fn):
+    def value_eval_trajectory(trj):
+        obs_0 = trj.obs[0]
+        obs_f = trj.next_obs[-1]
+        return value_fn([obs_f]) - value_fn([obs_0])
+    
+    return value_eval_trajectory
+
+
+
+def preferences_2(
+    venv,
+    expert=None,
+    evaluate_trajectories_fn=None,
+    n_pairs_per_batch=50,
+    reward_lr=1e-3,
+    policy_lr=1e-3,
+    policy_epoch_timesteps=200,
+    total_timesteps=10000,
+    state_only=False,
+    callback=None,
+    **kwargs,
+):
+
+    if evaluate_trajectories_fn is None:
+        eval_fn = extract_eval_fn_from_env(venv)
+        evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
+
+    expert_value_fn = get_value_fn(expert)
+    eval_fn = value_eval_trajectory_fn(expert_value_fn)
+    evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
+
+    # Create reward model
+    rn = BasicShapedRewardNet(
+        venv.observation_space,
+        venv.action_space,
+        theta_units=[32, 32],
+        phi_units=[32, 32],
+        scale=True,
+        state_only=state_only,
+    )
+
+    # Create learner from reward model
+    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, get_reward_fn_from_model(rn))
+    policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
+
+    # Compute trajectory probabilities
+    preferences_ph = tf.placeholder(
+        shape=(None, 2), dtype=tf.float32, name="preferences",
+    )
+    num_segments = 2 * tf.shape(preferences_ph)[0]
+    rewards_out = tf.reshape(rn.reward_output_train, [num_segments, -1])
+    returns_out = tf.reduce_sum(rewards_out, axis=1)
+    returns = tf.reshape(returns_out, shape=[-1, 2])
+    log_probs = tf.nn.log_softmax(returns, axis=1)
+
+    # Write loss and optimizer op
+    loss = (-1) * tf.reduce_sum(log_probs * preferences_ph)
+    optimizer = tf.train.AdamOptimizer(learning_rate=reward_lr)
+    reward_train_op = optimizer.minimize(loss)
+
+    # Start training
+    sess = tf.get_default_session()
+    sess.run(tf.global_variables_initializer())
+
+    num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
+    for epoch in range(num_epochs):
+        if callback is not None:
+            callback(locals(), globals())
+
+        trajectories = sample_trajectories(venv, policy, 2 * n_pairs_per_batch)
+
+        segments = get_segments(trajectories)
+
+        seg_returns = evaluate_trajectories_fn(segments)
+        seg_returns = seg_returns.reshape(-1, 2)
+        preferences = np.stack(
+            [
+                seg_returns[:, 0] > seg_returns[:, 1],
+                seg_returns[:, 1] > seg_returns[:, 0],
+            ],
+            axis=1,
+        )
+
+        obs = np.concatenate([seg.obs for seg in segments])
+        acts = np.concatenate([seg.acts for seg in segments])
+        next_obs = np.concatenate([seg.next_obs for seg in segments])
+
+        sess.run(
+            reward_train_op,
+            feed_dict={
+                rn.obs_ph: obs,
+                rn.act_ph: acts,
+                rn.next_obs_ph: next_obs,
+                preferences_ph: preferences,
+            },
+        )
+
+        # policy.set_env(venv_train)  # Possibly redundant?
+        policy.learn(total_timesteps=policy_epoch_timesteps)
+
+    if callback is not None:
+        callback(locals(), globals())
+
+    results = {}
+    results["reward_model"] = rn
+    results["policy"] = policy
+
+    return results
+
+
