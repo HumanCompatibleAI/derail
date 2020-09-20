@@ -103,7 +103,7 @@ class SimpleTask:
 
     def run(self, algo, **algo_kwargs):
         # XXX: hack, remove this later
-        self.expert_fn = get_ppo
+        self.expert_fn = train_rl
 
         expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
         expert_env = DummyVecEnv([lambda: expert_env])
@@ -113,7 +113,7 @@ class SimpleTask:
         expert_kwargs = self.expert_kwargs.copy()
         if total_timesteps is not None and "total_timesteps" not in expert_kwargs:
             expert_kwargs["total_timesteps"] = total_timesteps
-        expert = self.expert_fn(expert_env, **self.expert_kwargs)
+        expert = self.expert_fn(expert_env, **expert_kwargs)
 
         if self.callback_cls is not None:
             callback = self.callback_cls(**self.callback_kwargs)
