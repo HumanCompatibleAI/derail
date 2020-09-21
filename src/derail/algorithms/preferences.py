@@ -36,7 +36,8 @@ def preferences(
 ):
 
     if evaluate_trajectories_fn is None:
-        evaluate_trajectories_fn = get_eval_trajectories_fn(venv)
+        reward_eval_fn = reward_eval_path_fn(venv)
+        evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
 
     # Create reward model
     rn = BasicShapedRewardNet(
@@ -244,7 +245,7 @@ def preferences_2(
     evaluate_trajectories_fn=None,
     n_pairs_per_batch=50,
     reward_lr=1e-3,
-    policy_lr=1e-3,
+    policy_lr=1e-4,
     policy_epoch_timesteps=200,
     total_timesteps=10000,
     state_only=False,

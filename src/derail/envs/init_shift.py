@@ -6,6 +6,7 @@ import itertools
 import numpy as np
 
 from derail.envs import base_envs
+from derail.utils import one_hot_encoding
 
 
 class InitShiftEnv(base_envs.TabularModelMDP):
@@ -39,7 +40,7 @@ class InitShiftEnv(base_envs.TabularModelMDP):
         if not 0 <= initial_state < nS:
             raise ValueError(f"Initial state {initial_state} must lie in [0,{nS})")
 
-        self._initial_state = initial_state
+        initial_state_dist = one_hot_encoding(initial_state, nS)
 
         non_leaves = np.arange(3)
         leaves = np.arange(3, 7)
@@ -57,11 +58,8 @@ class InitShiftEnv(base_envs.TabularModelMDP):
 
         super().__init__(
             transition_matrix=transition_matrix, reward_matrix=reward_matrix,
+            initial_state_dist=initial_state_dist,
         )
-
-    def initial_state(self) -> int:
-        """Returns initial state defined in constructor."""
-        return self._initial_state
 
 
 InitShiftTrainEnv = functools.partial(InitShiftEnv, initial_state=0)
