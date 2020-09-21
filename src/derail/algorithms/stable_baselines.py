@@ -1,5 +1,6 @@
 import uuid
 
+from stable_baselines import GAIL
 # from stable_baselines import GAIL2
 from stable_baselines.gail import ExpertDataset, generate_expert_traj
 
