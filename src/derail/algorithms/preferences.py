@@ -13,6 +13,8 @@ from stable_baselines.common.policies import MlpPolicy
 from imitation.rewards.reward_net import BasicShapedRewardNet
 from imitation.util import reward_wrapper
 
+from derail.callbacks import Callback
+
 from derail.utils import (
     get_random_policy,
     sample_trajectories,
@@ -21,23 +23,31 @@ from derail.utils import (
     ti_soft_value_fn,
 )
 
-
 def preferences(
     venv,
+    expert=None,
     evaluate_trajectories_fn=None,
     n_pairs_per_batch=50,
     reward_lr=1e-3,
     policy_lr=1e-3,
     policy_epoch_timesteps=200,
     total_timesteps=10000,
+    cloning_bonus=False,
     state_only=False,
     callback=None,
     **kwargs,
 ):
+    if callback is None:
+        callback = Callback()
 
     if evaluate_trajectories_fn is None:
         reward_eval_fn = reward_eval_path_fn(venv)
         evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
+
+        if cloning_bonus:
+            cloning_eval_fn = soft_expert_cloning_eval_fn(expert, venv)
+            eval_fn = lambda path : reward_eval_fn(path) + cloning_eval_fn(path)
+            evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
 
     # Create reward model
     rn = BasicShapedRewardNet(
@@ -50,7 +60,8 @@ def preferences(
     )
 
     # Create learner from reward model
-    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, get_reward_fn_from_model(rn))
+    reward_fn = get_reward_fn_from_model(rn)
+    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
     policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
 
     # Compute trajectory probabilities
@@ -73,9 +84,10 @@ def preferences(
     sess.run(tf.global_variables_initializer())
 
     num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
+
+    callback.start(locals(), globals())
     for epoch in range(num_epochs):
-        if callback is not None:
-            callback(locals(), globals())
+        callback.step(locals(), globals())
 
         trajectories = sample_trajectories(venv, policy, 2 * n_pairs_per_batch)
 
@@ -107,13 +119,15 @@ def preferences(
 
         # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
+    epoch += 1
 
-    if callback is not None:
-        callback(locals(), globals())
+    callback.step(locals(), globals())
 
     results = {}
     results["reward_model"] = rn
     results["policy"] = policy
+
+    callback.end(locals(), globals())
 
     return results
 
@@ -245,22 +259,26 @@ def preferences_2(
     evaluate_trajectories_fn=None,
     n_pairs_per_batch=50,
     reward_lr=1e-3,
-    policy_lr=1e-4,
+    policy_lr=1e-3,
     policy_epoch_timesteps=200,
     total_timesteps=10000,
+    cloning_bonus=True,
     state_only=False,
     callback=None,
     **kwargs,
 ):
+    if callback is None:
+        callback = Callback()
+
 
     if evaluate_trajectories_fn is None:
         reward_eval_fn = reward_eval_path_fn(venv)
         evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
 
-    cloning_eval_fn = soft_expert_cloning_eval_fn(expert, venv)
-    eval_fn = lambda path : reward_eval_fn(path) + cloning_eval_fn(path)
-
-    evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
+        if cloning_bonus:
+            cloning_eval_fn = soft_expert_cloning_eval_fn(expert, venv)
+            eval_fn = lambda path : reward_eval_fn(path) + cloning_eval_fn(path)
+            evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
 
     # Create reward model
     rn = BasicShapedRewardNet(
@@ -273,7 +291,8 @@ def preferences_2(
     )
 
     # Create learner from reward model
-    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, get_reward_fn_from_model(rn))
+    reward_fn = get_reward_fn_from_model(rn)
+    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
     policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
 
     # Compute trajectory probabilities
@@ -296,9 +315,10 @@ def preferences_2(
     sess.run(tf.global_variables_initializer())
 
     num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
+
+    callback.start(locals(), globals())
     for epoch in range(num_epochs):
-        if callback is not None:
-            callback(locals(), globals())
+        callback.step(locals(), globals())
 
         trajectories = sample_trajectories(venv, policy, 2 * n_pairs_per_batch)
 
@@ -330,13 +350,15 @@ def preferences_2(
 
         # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
+    epoch += 1
 
-    if callback is not None:
-        callback(locals(), globals())
+    callback.step(locals(), globals())
 
     results = {}
     results["reward_model"] = rn
     results["policy"] = policy
+
+    callback.end(locals(), globals())
 
     return results
 

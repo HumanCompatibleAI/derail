@@ -13,6 +13,7 @@ from derail.utils import (
     get_hard_mdp_expert,
     get_ppo,
     get_random_policy,
+    get_last_timestamp,
     get_timestamp,
     monte_carlo_eval_policy,
     ppo_algo,
@@ -23,6 +24,7 @@ from derail.utils import (
 from derail.envs import *
 from derail.envs.experts import *
 from derail.algorithms import *
+from derail.callbacks import *
 
 
 class EvalCallback:
@@ -76,6 +78,8 @@ class SimpleTask:
         expert_fn=train_rl,
         eval_policy_fn=monte_carlo_eval_policy,
         eval_kwargs=None,
+        callback_cls=Callback,
+        callback_kwargs=None,
     ):
         if expert_env_name is None:
             expert_env_name = env_name
@@ -85,6 +89,8 @@ class SimpleTask:
             algo_kwargs = {}
         if eval_kwargs is None:
             eval_kwargs = {}
+        if callback_kwargs is None:
+            callback_kwargs = {}
 
         self.env_name = env_name
         self.expert_env_name = expert_env_name
@@ -97,13 +103,21 @@ class SimpleTask:
         self.eval_kwargs = dict(n_eval_episodes=100, deterministic=False)
         self.eval_kwargs.update(eval_kwargs)
 
-        self.callback_cls = EvalCallback
-        self.callback_cls = None
-        self.callback_kwargs = dict()
+        self.callback_cls = callback_cls
+        self.callback_kwargs = callback_kwargs
 
     def run(self, algo, **algo_kwargs):
-        # XXX: hack, remove this later
-        # self.expert_fn = train_rl
+        # XXX Hack
+        self.callback_cls = CollectorCallback
+
+        savepath = os.path.join(
+            '~/data',
+            get_last_timestamp(),
+            f'{self.env_name}-{algo.__name__}-{np.random.randint(1000)}',
+        )
+
+        self.callback_kwargs = dict(savepath=savepath)
+
 
         expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
         expert_env = DummyVecEnv([lambda: expert_env])
@@ -115,12 +129,11 @@ class SimpleTask:
             expert_kwargs["total_timesteps"] = total_timesteps
         expert = self.expert_fn(expert_env, **expert_kwargs)
 
-        if self.callback_cls is not None:
-            callback = self.callback_cls(**self.callback_kwargs)
-            callback_fn = callback.step
-        else:
-            callback = None
-            callback_fn = None
+        # callback = self.callback_cls(**self.callback_kwargs)
+
+        # XXX Hack
+        # XXX Hack
+        callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
 
         task_results = {}
 
@@ -136,16 +149,13 @@ class SimpleTask:
                 env,
                 expert=expert,
                 expert_venv=expert_env,
-                callback=callback_fn,
+                callback=callback,
                 **kwargs,
             )
             learned_policy = algo_results["policy"]
 
             avg_return = self.eval_policy_fn(learned_policy, env, **self.eval_kwargs)
             task_results["return"] = avg_return
-
-        if self.callback_cls is not None:
-            task_results["callback"] = callback.get_results()
 
         return task_results
 
