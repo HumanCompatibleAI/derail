@@ -111,7 +111,7 @@ class SimpleTask:
         self.callback_cls = CollectorCallback
 
         savepath = os.path.join(
-            '~/data',
+            './data',
             get_last_timestamp(),
             f'{self.env_name}-{algo.__name__}-{np.random.randint(1000)}',
         )
