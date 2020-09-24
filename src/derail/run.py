@@ -203,11 +203,18 @@ TASKS = {
     "sort": SimpleTask(env_name="Sort", expert_fn=get_selectionsort_expert,),
 }
 
+def airl_state_only(*args, **kwargs):
+    return functools.partial(imitation_airl, state_only=True)(*args, **kwargs)
+
+def preferences_state_only(*args, **kwargs):
+    return functools.partial(preferences, state_only=True)(*args, **kwargs)
+
+
 ALGOS = {
     "mce_irl": mce_irl,
     "max_ent_irl": max_ent_irl,
-    "airl_state_only": functools.partial(imitation_airl, state_only=True),
-    "preferences_state_only": functools.partial(preferences, state_only=True),
+    "airl_state_only": airl_state_only
+    "preferences_state_only": preferences_state_only,
     "imitation_gail": imitation_gail,
     "behavioral_cloning": behavioral_cloning,
     "stable_gail": stable_gail,
