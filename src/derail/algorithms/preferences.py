@@ -235,7 +235,11 @@ def reward_eval_path_fn(venv):
     if hasattr(env, "eval_trajectory_fn"):
         return env.eval_trajectory_fn
     elif hasattr(env, "reward"):
-        return eval_fn_from_reward(env.reward)
+        if hasattr(env, "state_from_ob"):
+            state_fn = env.state_from_ob
+        else:
+            state_fn = None
+        return eval_fn_from_reward(env.reward, state_fn=state_fn)
     else:
         raise Exception("No eval_trajectory_fn in environment")
 

@@ -64,3 +64,6 @@ class NoisyObsEnv(base_envs.ResettablePOMDP):
         """Returns (x, y) concatenated with Gaussian noise."""
         noise_vector = self.rand_state.randn(self._noise_length)
         return np.concatenate([state, noise_vector])
+
+    def state_from_ob(self, ob):
+        return ob[:2]
