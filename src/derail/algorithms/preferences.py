@@ -38,7 +38,9 @@ def preferences(
     cloning_bonus=False,
     state_only=False,
     callback=None,
-    do_rnd=False,
+    use_rnd=False,
+    rnd_lr=1e-3,
+    rnd_coeff=1,
     **kwargs,
 ):
     if callback is None:
@@ -83,15 +85,15 @@ def preferences(
     reward_fn = get_reward_fn_from_model(rn)
 
     # Random network distillation bonus
-    if do_rnd:
+    if use_rnd:
         rnd_target_net = build_mlp([32, 32, 32])
         rnd_target = sequential(rn.obs_inp, rnd_target_net)
 
         rnd_pred_net = build_mlp([32, 32, 32])
         rnd_pred = sequential(rn.obs_inp, rnd_pred_net)
 
-        rnd_loss = tf.mean((tf.stop_gradient(rnd_target) - rnd_pred)**2)
-        rnd_optimizer = tf.train.AdamOptimizer(learning_rate=reward_lr)
+        rnd_loss = tf.reduce_mean((tf.stop_gradient(rnd_target) - rnd_pred)**2)
+        rnd_optimizer = tf.train.AdamOptimizer(learning_rate=rnd_lr)
         rnd_train_op = rnd_optimizer.minimize(rnd_loss)
 
         def rnd_reward_fn(obs, *args, **kwargs):
@@ -99,7 +101,7 @@ def preferences(
 
         extrinsic_reward_fn = reward_fn
         def reward_fn(*args, **kwargs):
-            return extrinsic_reward_fn(*args, **kwargs) + rnd_reward_fn(*args, **kwargs)
+            return extrinsic_reward_fn(*args, **kwargs) + rnd_coeff * rnd_reward_fn(*args, **kwargs)
 
     # Create learner from reward model
     venv_train = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
@@ -137,8 +139,12 @@ def preferences(
         acts = np.concatenate([seg.acts for seg in segments])
         next_obs = np.concatenate([seg.next_obs for seg in segments])
 
+        ops = [reward_train_op]
+        if use_rnd:
+            ops.append(rnd_train_op)
+
         sess.run(
-            reward_train_op,
+            ops,
             feed_dict={
                 rn.obs_ph: obs,
                 rn.act_ph: acts,

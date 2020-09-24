@@ -200,7 +200,9 @@ ALGOS = {
     "fu_airl": fu_airl,
     "preferences": preferences,
     "preferences_2": preferences_2,
+    "preferences_rnd": functools.partial(preferences, use_rnd=True),
     "airl": imitation_airl,
+
     "expert": get_expert_algo,
     "random": random_algo,
     "ppo": ppo_algo,
