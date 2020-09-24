@@ -119,9 +119,9 @@ def get_parabola_expert(venv, **kwargs):
         return target
 
     def cross_entropy(ob, act):
-        mean = get_target(ob)
+        expert_act, _ = predict_fn(ob)
         stddev = env._x_step
-        return ((act - mean)**2) / (2 * stddev**2)
+        return ((act - expert_act)**2) / (2 * stddev**2)
 
     def predict_fn(ob, state=None, deterministic=False):
         y = ob[1]
