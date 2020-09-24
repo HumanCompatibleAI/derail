@@ -3,7 +3,7 @@ from derail.algorithms.imitation_adversarial import (
     imitation_airl,
     imitation_gail,
 )
-from derail.algorithms.preferences import preferences, preferences_2
+from derail.algorithms.preferences import preferences
 from derail.algorithms.stable_baselines import (
     behavioral_cloning,
     stable_gail,
