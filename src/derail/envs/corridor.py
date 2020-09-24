@@ -25,7 +25,7 @@ class CorridorEnv(base_envs.ResettableMDP):
         return 0
 
     def reward(self, state: np.ndarray, action: int, new_state: np.ndarray) -> float:
-        return (state // self._reward_period) * (self._reward_period / (self._length + 1))
+        return ((state + 1) // self._reward_period) * (self._reward_period / (self._length + 1))
 
     def transition(self, state: np.ndarray, action: int) -> np.ndarray:
         """Update x according to x_step and y according to action."""
