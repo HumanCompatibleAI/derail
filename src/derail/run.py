@@ -133,7 +133,10 @@ class SimpleTask:
 
         # XXX Hack
         # XXX Hack
-        callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
+        if 'noisy' in self.env_name and 'pref' in algo.__name__:
+            callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
+        else:
+            callback = Callback()
 
         task_results = {}
 
