@@ -213,7 +213,7 @@ def preferences_state_only(*args, **kwargs):
 ALGOS = {
     "mce_irl": mce_irl,
     "max_ent_irl": max_ent_irl,
-    "airl_state_only": airl_state_only
+    "airl_state_only": airl_state_only,
     "preferences_state_only": preferences_state_only,
     "imitation_gail": imitation_gail,
     "behavioral_cloning": behavioral_cloning,
