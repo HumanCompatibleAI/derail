@@ -11,7 +11,7 @@ from stable_baselines.common.base_class import ActorCriticRLModel
 from stable_baselines.common.policies import MlpPolicy
 
 from imitation.rewards.reward_net import BasicShapedRewardNet
-from imitation.util import reward_wrapper
+from imitation.util import reward_wrapper, build_mlp, sequential
 
 from derail.callbacks import Callback
 
@@ -27,14 +27,17 @@ def preferences(
     venv,
     expert=None,
     evaluate_trajectories_fn=None,
-    n_pairs_per_batch=50,
+    # n_pairs_per_batch=50,
+    n_timesteps_per_query=500,
     reward_lr=1e-3,
     policy_lr=1e-3,
-    policy_epoch_timesteps=200,
+    # policy_epoch_timesteps=200,
+    policy_epoch_timesteps=1000,
     total_timesteps=10000,
     cloning_bonus=False,
     state_only=False,
     callback=None,
+    do_rnd=False,
     **kwargs,
 ):
     if callback is None:
@@ -59,10 +62,6 @@ def preferences(
         state_only=state_only,
     )
 
-    # Create learner from reward model
-    reward_fn = get_reward_fn_from_model(rn)
-    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
-    policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
 
     # Compute trajectory probabilities
     preferences_ph = tf.placeholder(
@@ -79,9 +78,38 @@ def preferences(
     optimizer = tf.train.AdamOptimizer(learning_rate=reward_lr)
     reward_train_op = optimizer.minimize(loss)
 
+
+    reward_fn = get_reward_fn_from_model(rn)
+
+    # Random network distillation bonus
+    if do_rnd:
+        rnd_target_net = build_mlp([32, 32, 32])
+        rnd_target = sequential(rn.obs_inp, rnd_target_net)
+
+        rnd_pred_net = build_mlp([32, 32, 32])
+        rnd_pred = sequential(rn.obs_inp, rnd_pred_net)
+
+        rnd_loss = tf.mean((tf.stop_gradient(rnd_target) - rnd_pred)**2)
+        rnd_optimizer = tf.train.AdamOptimizer(learning_rate=reward_lr)
+        rnd_train_op = rnd_optimizer.minimize(rnd_loss)
+
+        def rnd_reward_fn(obs, *args, **kwargs):
+            return sess.run(rnd_loss, feed_dict={rn.obs_ph : obs})
+
+        extrinsic_reward_fn = reward_fn
+        def reward_fn(*args, **kwargs):
+            return extrinsic_reward_fn(*args, **kwargs) + rnd_reward_fn(*args, **kwargs)
+
+    # Create learner from reward model
+    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
+    policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
+
+
     # Start training
     sess = tf.get_default_session()
     sess.run(tf.global_variables_initializer())
+
+    horizon = get_horizon(venv)
 
     num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
 
@@ -89,6 +117,7 @@ def preferences(
     for epoch in range(num_epochs):
         callback.step(locals(), globals())
 
+        n_pairs_per_batch = (n_timesteps_per_query / (2 * horizon))
         trajectories = sample_trajectories(venv, policy, 2 * n_pairs_per_batch)
 
         segments = get_segments(trajectories)
