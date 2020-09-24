@@ -155,3 +155,41 @@ class CollectorCallback:
             pickle.dump(self.data, f)
         with open(f'{self.savepath}.json', 'w') as f:
             json.dump(self.data, f)
+
+
+
+
+class EvalCallback:
+    def __init__(self, max_n_evals=21, min_step_size=1000):
+        self.returns = []
+        self.last_timesteps = None
+
+        self.max_n_evals = max_n_evals
+        self.min_step_size = min_step_size
+
+    def step(self, lcls, glbs):
+        total_timesteps = lcls["total_timesteps"]
+        step_size = max(total_timesteps // (self.max_n_evals - 1), self.min_step_size)
+
+        timesteps = lcls["timesteps"]
+        if (
+            self.last_timesteps is not None
+            and timesteps - self.last_timesteps < step_size
+        ):
+            return
+
+        venv = lcls["venv"]
+        policy = lcls["policy"]
+
+        rew = monte_carlo_eval_policy(
+            policy, venv, n_eval_episodes=1000, deterministic=False
+        )
+
+        self.returns.append((timesteps, rew))
+
+        self.last_timesteps = timesteps
+
+    def get_results(self):
+        return self.returns
+
+

@@ -27,40 +27,6 @@ from derail.algorithms import *
 from derail.callbacks import *
 
 
-class EvalCallback:
-    def __init__(self, max_n_evals=21, min_step_size=1000):
-        self.returns = []
-        self.last_timesteps = None
-
-        self.max_n_evals = max_n_evals
-        self.min_step_size = min_step_size
-
-    def step(self, lcls, glbs):
-        total_timesteps = lcls["total_timesteps"]
-        step_size = max(total_timesteps // (self.max_n_evals - 1), self.min_step_size)
-
-        timesteps = lcls["timesteps"]
-        if (
-            self.last_timesteps is not None
-            and timesteps - self.last_timesteps < step_size
-        ):
-            return
-
-        venv = lcls["venv"]
-        policy = lcls["policy"]
-
-        rew = monte_carlo_eval_policy(
-            policy, venv, n_eval_episodes=1000, deterministic=False
-        )
-
-        self.returns.append((timesteps, rew))
-
-        self.last_timesteps = timesteps
-
-    def get_results(self):
-        return self.returns
-
-
 def name_with_version(name):
     if "-v" in name:
         return name
@@ -190,6 +156,17 @@ TASKS = {
     "largest_sum": SimpleTask(env_name="LargestSum", expert_fn=get_largest_sum_expert,),
     "parabola": SimpleTask(env_name="Parabola", expert_fn=get_parabola_expert,),
     "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
+    "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
+    "corridor_v0": SimpleTask(env_name="Corridor-v0", expert_fn=get_corridor_expert,),
+    "corridor_v1": SimpleTask(env_name="Corridor-v1", expert_fn=get_corridor_expert,),
+    "corridor_v2": SimpleTask(env_name="Corridor-v2", expert_fn=get_corridor_expert,),
+    "corridor_v3": SimpleTask(env_name="Corridor-v3", expert_fn=get_corridor_expert,),
+    "corridor_v4": SimpleTask(env_name="Corridor-v4", expert_fn=get_corridor_expert,),
+    "corridor_v5": SimpleTask(env_name="Corridor-v5", expert_fn=get_corridor_expert,),
+    # "corridor_v6": SimpleTask(env_name="Corridor-v6", expert_fn=get_corridor_expert,),
+    # "corridor_v7": SimpleTask(env_name="Corridor-v7", expert_fn=get_corridor_expert,),
+    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
+    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v2": SimpleTask(env_name="NoisyObs-v2", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v3": SimpleTask(env_name="NoisyObs-v3", expert_fn=get_noisyobs_expert,),
