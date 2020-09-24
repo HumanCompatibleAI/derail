@@ -80,10 +80,11 @@ def adversarial_learning(
     sess.run(tf.global_variables_initializer())
 
     num_epochs = int(np.ceil(total_timesteps / gen_batch_size))
+
+    callback.start(locals(), globals())
     for epoch in range(num_epochs):
         timesteps = gen_batch_size * epoch
-        if callback is not None:
-            callback(locals(), globals())
+        callback.step(locals(), globals())
 
         # Train gen
         # gen_policy.set_env(venv_train_buffering)  # possibly redundant
@@ -125,8 +126,7 @@ def adversarial_learning(
             )
 
     timesteps = total_timesteps
-    if callback is not None:
-        callback(locals(), globals())
+    callback.step(locals(), globals())
 
     results = {}
     results["reward_model"] = rn

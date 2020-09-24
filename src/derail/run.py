@@ -110,10 +110,12 @@ class SimpleTask:
         # XXX Hack
         self.callback_cls = CollectorCallback
 
+        algo_name = algo_kwargs['algo_name']
+
         savepath = os.path.join(
             './data',
             get_last_timestamp(),
-            f'{self.env_name}-{algo.__name__}-{np.random.randint(1000)}',
+            f'{self.env_name}-{algo_name}-{np.random.randint(1000)}',
         )
 
         self.callback_kwargs = dict(savepath=savepath)
@@ -133,7 +135,7 @@ class SimpleTask:
 
         # XXX Hack
         # XXX Hack
-        if 'noisy' in self.env_name and 'pref' in algo.__name__:
+        if 'noisy' in self.env_name and 'pref' in algo_name:
             callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
         else:
             callback = Callback()
@@ -206,18 +208,12 @@ TASKS = {
     "sort": SimpleTask(env_name="Sort", expert_fn=get_selectionsort_expert,),
 }
 
-def airl_state_only(*args, **kwargs):
-    return functools.partial(imitation_airl, state_only=True)(*args, **kwargs)
-
-def preferences_state_only(*args, **kwargs):
-    return functools.partial(preferences, state_only=True)(*args, **kwargs)
-
 
 ALGOS = {
     "mce_irl": mce_irl,
     "max_ent_irl": max_ent_irl,
-    "airl_state_only": airl_state_only,
-    "preferences_state_only": preferences_state_only,
+    "airl_state_only": functools.partial(imitation_airl, state_only=True),
+    "preferences_state_only": functools.partial(preferences, state_only=True),
     "imitation_gail": imitation_gail,
     "behavioral_cloning": behavioral_cloning,
     "stable_gail": stable_gail,
@@ -238,7 +234,7 @@ def run_experiment(task_name, algo_name, seed, *args, **kwargs):
 
     task = TASKS[task_name]
     algo = ALGOS[algo_name]
-    res = task.run(algo, *args, **kwargs)
+    res = task.run(algo, *args, algo_name=algo_name, **kwargs)
     res["task"] = task_name
     res["algo"] = algo_name
     res["seed"] = seed
