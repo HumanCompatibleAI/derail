@@ -19,6 +19,7 @@ from derail.utils import (
     get_random_policy,
     sample_trajectories,
     get_raw_env,
+    get_horizon,
     ti_hard_value_fn,
     ti_soft_value_fn,
 )

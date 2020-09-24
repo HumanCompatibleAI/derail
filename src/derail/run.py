@@ -165,6 +165,7 @@ TASKS = {
     "corridor_v5": SimpleTask(env_name="Corridor-v5", expert_fn=get_corridor_expert,),
     "corridor_v6": SimpleTask(env_name="Corridor-v6", expert_fn=get_corridor_expert,),
     "corridor_v7": SimpleTask(env_name="Corridor-v7", expert_fn=get_corridor_expert,),
+    "corridor_v8": SimpleTask(env_name="Corridor-v8", expert_fn=get_corridor_expert,),
     # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
     # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),

@@ -151,3 +151,13 @@ gym.register(
     )
 )
 
+gym.register(
+    id="seals/Corridor-v8",
+    entry_point="derail.envs.corridor:CorridorEnv",
+    max_episode_steps=220,
+    kwargs=dict(
+        length=200,
+        reward_period=1,
+    )
+)
+
