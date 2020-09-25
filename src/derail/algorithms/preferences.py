@@ -62,7 +62,6 @@ class RunningMeanVar:
         self.mean += self.alpha * delta
         self.var = (1 - self.alpha) * (self.var + self.alpha * delta**2)
 
-        return xs
         return (xs - self.mean) / np.sqrt(self.var)
 
 def preferences(
@@ -83,6 +82,7 @@ def preferences(
     rnd_lr=1e-3,
     rnd_coeff=1,
     normalize_extrinsic=True,
+    egreedy_sampling=False,
     **kwargs,
 ):
     if callback is None:
@@ -143,6 +143,7 @@ def preferences(
 
         def rnd_reward_fn(obs, *args, **kwargs):
             int_rew = sess.run(rnd_loss, feed_dict={rn.obs_ph : obs})
+            int_rew_old = int_rew
             int_rew = runn_rnd_rews.exp_update(int_rew)
 
             return int_rew
@@ -155,7 +156,7 @@ def preferences(
         def extrinsic_reward_fn(*args, **kwargs):
             ext_rew = base_extrinsic_reward_fn(*args, **kwargs)
             if normalize_extrinsic:
-                ext_rew = runn_rnd_rews.exp_update(ext_rew)
+                ext_rew = runn_ext_rews.exp_update(ext_rew)
             return ext_rew
 
         def reward_fn(*args, **kwargs):

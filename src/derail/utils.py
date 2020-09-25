@@ -51,6 +51,20 @@ def force_shape(arr, shape):
 
     return new_arr
 
+def make_egreedy(model, epsilon=0.1):
+    if hasattr(model, 'policy_matrix'):
+        nA = model.policy_matrix.shape[-1]
+        new_policy = (1 - epsilon) * model.policy_matrix + (epsilon / nA) * np.ones_like(model.policy_matrix)
+        return LightweightRLModel.from_matrix(new_policy, env=model.env)
+    else:
+        random_policy = get_random_policy(model.env)
+        def predict_fn(*args, **kwargs):
+            if np.random.rand() < epsilon:
+                return random_policy.predict_fn(*args, **kwargs)
+            else:
+                return model.predict_fn(*args, **kwargs)
+        return LightweightRLModel(predict_fn=predict_fn, env=model.env)
+
 def get_raw_policy(policy):
     if hasattr(policy, "policy_matrix"):
         return policy.policy_matrix
