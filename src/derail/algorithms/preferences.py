@@ -1,4 +1,6 @@
 from collections import Counter, defaultdict, deque, namedtuple
+import collections
+
 import math
 import functools
 
@@ -11,7 +13,7 @@ from stable_baselines.common.base_class import ActorCriticRLModel
 from stable_baselines.common.policies import MlpPolicy
 
 from imitation.rewards.reward_net import BasicShapedRewardNet
-from imitation.util import reward_wrapper, build_mlp, sequential
+from imitation.util import reward_wrapper
 
 from derail.callbacks import Callback
 
@@ -23,6 +25,45 @@ from derail.utils import (
     ti_hard_value_fn,
     ti_soft_value_fn,
 )
+
+class RunningMeanVar:
+    def __init__(self, alpha=0.05):
+        self.alpha = alpha
+
+        self.mean = 0
+        self.var = 1.0
+        self.count = 0
+
+    def count_update(self, xs):
+        batch_mean = np.mean(xs)
+        batch_var = np.var(xs)
+        batch_count = len(xs)
+
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * (self.count)
+        m_b = batch_var * (batch_count)
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        new_count = batch_count + self.count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
+
+    def exp_update(self, xs):
+        batch_mean = np.mean(xs)
+        batch_var = np.var(xs)
+
+        delta = batch_mean - self.mean
+        self.mean += self.alpha * delta
+        self.var = (1 - self.alpha) * (self.var + self.alpha * delta**2)
+
+        return xs
+        return (xs - self.mean) / np.sqrt(self.var)
 
 def preferences(
     venv,
@@ -41,6 +82,7 @@ def preferences(
     use_rnd=False,
     rnd_lr=1e-3,
     rnd_coeff=1,
+    normalize_extrinsic=True,
     **kwargs,
 ):
     if callback is None:
@@ -86,20 +128,36 @@ def preferences(
 
     # Random network distillation bonus
     if use_rnd:
-        rnd_target_net = build_mlp([32, 32, 32])
+        rnd_size = 200
+        rnd_target_net = build_mlp([32, 32, 32], output_size=rnd_size)
         rnd_target = sequential(rn.obs_inp, rnd_target_net)
 
-        rnd_pred_net = build_mlp([32, 32, 32])
+        rnd_pred_net = build_mlp([32, 32, 32], output_size=rnd_size)
         rnd_pred = sequential(rn.obs_inp, rnd_pred_net)
 
         rnd_loss = tf.reduce_mean((tf.stop_gradient(rnd_target) - rnd_pred)**2)
         rnd_optimizer = tf.train.AdamOptimizer(learning_rate=rnd_lr)
         rnd_train_op = rnd_optimizer.minimize(rnd_loss)
 
-        def rnd_reward_fn(obs, *args, **kwargs):
-            return sess.run(rnd_loss, feed_dict={rn.obs_ph : obs})
+        runn_rnd_rews = RunningMeanVar(alpha=0.01)
 
-        extrinsic_reward_fn = reward_fn
+        def rnd_reward_fn(obs, *args, **kwargs):
+            int_rew = sess.run(rnd_loss, feed_dict={rn.obs_ph : obs})
+            int_rew = runn_rnd_rews.exp_update(int_rew)
+
+            return int_rew
+
+        base_extrinsic_reward_fn = reward_fn
+
+        if normalize_extrinsic:
+            runn_ext_rews = RunningMeanVar(alpha=0.01)
+
+        def extrinsic_reward_fn(*args, **kwargs):
+            ext_rew = base_extrinsic_reward_fn(*args, **kwargs)
+            if normalize_extrinsic:
+                ext_rew = runn_rnd_rews.exp_update(ext_rew)
+            return ext_rew
+
         def reward_fn(*args, **kwargs):
             return extrinsic_reward_fn(*args, **kwargs) + rnd_coeff * rnd_reward_fn(*args, **kwargs)
 
@@ -169,6 +227,39 @@ def preferences(
 
 
 Segment = namedtuple("Segment", ["obs", "acts", "next_obs"])
+
+def build_mlp(hid_sizes,
+              output_size=1,
+              name=None,
+              activation=tf.nn.relu,
+              initializer=None,
+              ):
+  """Constructs an MLP, returning an ordered dict of layers."""
+  layers = collections.OrderedDict()
+
+  # Hidden layers
+  for i, size in enumerate(hid_sizes):
+    key = f"{name}_dense{i}"
+    layer = tf.layers.Dense(size, activation=activation,
+                            kernel_initializer=initializer,
+                            name=key)  # type: tf.layers.Layer
+    layers[key] = layer
+
+  # Final layer
+  layer = tf.layers.Dense(output_size, kernel_initializer=initializer,
+                          name=f"{name}_dense_final")  # type: tf.layers.Layer
+  layers[f"{name}_dense_final"] = layer
+
+  return layers
+
+def sequential(inputs,
+               layers,
+               ):
+  """Applies a sequence of layers to an input."""
+  output = inputs
+  for layer in layers.values():
+    output = layer(output)
+  return output
 
 
 def get_segments(trajectories):
