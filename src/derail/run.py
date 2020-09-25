@@ -103,6 +103,8 @@ class SimpleTask:
         # XXX Hack
         if 'Noisy' in self.env_name and 'pref' in algo_name:
             callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
+        elif 'orridor' in self.env_name and 'pref' in algo_name:
+            callback = CorridorDrlhpCallback(savepath)
         else:
             callback = Callback()
 

@@ -7,7 +7,7 @@ import pickle
 
 import numpy as np
 
-from derail.utils import get_raw_env, sample_trajectories
+from derail.utils import get_horizon, get_raw_policy, get_raw_env, sample_trajectories
 
 class Callback:
     def start(self, lcls, gbls):
@@ -156,6 +156,104 @@ class CollectorCallback:
         with open(f'{self.savepath}.json', 'w') as f:
             json.dump(self.data, f)
 
+
+
+
+class CorridorDrlhpCallback:
+    def __init__(self, savepath, max_num_calls=100, min_timesteps=1000):
+        self.savepath = savepath
+        self.max_num_calls = max_num_calls
+        self.min_timesteps = min_timesteps
+
+    def start(self, lcls, gbls):
+        self._call_idx = 0
+        self.data = []
+
+        total_timesteps = lcls['total_timesteps'] 
+        policy_epoch_timesteps = lcls['policy_epoch_timesteps']
+        num_epochs = lcls['num_epochs']
+
+        num_calls = min(self.max_num_calls, total_timesteps // self.min_timesteps)
+
+        self._epoch_multiple = num_epochs // num_calls
+
+        self._queried = Counter()
+
+
+    def step(self, lcls, gbls, idx=0):
+        epoch = lcls['epoch']
+        num_epochs = lcls['num_epochs']
+
+        if epoch % self._epoch_multiple == 0 or epoch == num_epochs:
+            self.data.append(self.get_snapshot(lcls, gbls, idx))
+
+        self._call_idx += 1
+
+    def get_snapshot(self, lcls, gbls, idx=0):
+        venv = lcls['venv']
+        policy = lcls['policy']
+        reward_fn = lcls['reward_fn']
+        timesteps = lcls['policy_epoch_timesteps'] * lcls['epoch']
+
+        obs = lcls.get('obs', [])
+
+        self._queried.update(obs)
+
+        P = get_raw_policy(policy)[0]
+
+        nS = venv.observation_space.n
+        nA = venv.action_space.n
+        S = range(nS)
+        A = range(nA)
+
+        env = get_raw_env(venv)
+
+        horizon = get_horizon(venv)
+
+        def get_raw_reward(rew_fn):
+            Rs = np.zeros((nS, nA))
+            for s, a in itertools.product(S, A):
+                ns = env.transition(s, a)
+                Rs[s, a] = rew_fn([s], [a], [ns], None)
+            return Rs
+
+        def get_occupancy(pol):
+            occupancy = np.zeros((horizon+1, nS))
+            occupancy[0, 0] = 1.0
+
+            for t in range(horizon):
+                for s, a in itertools.product(S, A):
+                    ns = env.transition(s, a)
+                    occupancy[t + 1, ns] += occupancy[t, s] * P[s, a]
+
+            return occupancy.sum(axis=0) / occupancy.sum()
+
+        R = get_raw_reward(reward_fn)
+        O = get_occupancy(P)
+
+        fmt_float = lambda x : round(float(x), 2)
+
+        def pos_info(s):
+            return {
+                'rew_l' : fmt_float(R[s, 0]),
+                'rew_r' : fmt_float(R[s, 1]),
+                'occ' : fmt_float(O[s]),
+                'queried' : fmt_float(self._queried.get(s, 0)),
+            }
+
+        return {
+            "timesteps" : int(timesteps),
+            "states" : [pos_info(s) for s in S],
+        }
+
+
+    def end(self, lcls, gbls):
+        dirpath = os.path.dirname(self.savepath)
+        os.makedirs(dirpath, exist_ok=True)
+        with open(f'{self.savepath}.pkl', 'wb') as f:
+            pickle.dump(self.data, f)
+        with open(f'{self.savepath}.json', 'w') as f:
+            json.dump(self.data, f, indent=2)
 
 
 
