@@ -44,7 +44,8 @@ def get_proc_goal_expert(venv, **kwargs):
 
 def get_largest_sum_expert(venv, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
-        return int(np.sum(ob[::2]) < np.sum(ob[1::2])), state
+        action = np.sum(state[: n // 2]) > np.sum(state[n // 2 :])
+        return action
 
     return LightweightRLModel(predict_fn=predict_fn, env=venv)
 
