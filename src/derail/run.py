@@ -72,7 +72,7 @@ class SimpleTask:
         self.callback_cls = callback_cls
         self.callback_kwargs = callback_kwargs
 
-    def run(self, algo, **algo_kwargs):
+    def run(self, algo, seed, **algo_kwargs):
         # XXX Hack
         self.callback_cls = CollectorCallback
 
@@ -81,7 +81,7 @@ class SimpleTask:
         savepath = os.path.join(
             './data',
             get_last_timestamp(),
-            f'{self.env_name}-{algo_name}-{np.random.randint(1000)}',
+            f'{self.env_name}-{algo_name}-{seed}',
         )
 
         self.callback_kwargs = dict(savepath=savepath)
@@ -231,7 +231,7 @@ def run_experiment(task_name, algo_name, seed, *args, **kwargs):
 
     task = TASKS[task_name]
     algo = ALGOS[algo_name]
-    res = task.run(algo, *args, algo_name=algo_name, **kwargs)
+    res = task.run(algo, *args, seed=seed, algo_name=algo_name, **kwargs)
     res["task"] = task_name
     res["algo"] = algo_name
     res["seed"] = seed
@@ -302,11 +302,17 @@ def eval_algorithms(
         seed = result["seed"]
         callback_eval = result.get("callback", None)
 
+        include_seed = True
+        if include_seed:
+            maybe_seed = f" {seed}"
+        else:
+            maybe_seed = ""
+
         if callback_eval is not None:
             for timesteps, avg_ret in callback_eval:
                 log_line(f"{task} {algo} {seed} {timesteps} {avg_ret:.2f}")
         else:
-            log_line(f"{task} {algo} {ret:.2f}")
+            log_line(f"{task} {algo}{maybe_seed} {ret:.2f}")
 
     if parallel:
         with futures.ProcessPoolExecutor(max_workers=None) as executor:
