@@ -195,7 +195,7 @@ class CorridorDrlhpCallback:
         timesteps = lcls['policy_epoch_timesteps'] * lcls['epoch']
         use_rnd = lcls['use_rnd']
         rew_fn = lcls['reward_fn']
-        ext_rew_fn = lcls.get('ext_rew_fn', lambda _ : 0)
+        rnd_reward_fn = lcls.get('rnd_reward_fn', lambda _ : 0)
         obs = lcls.get('obs', [])
         runn_rnd_rews = lcls.get('runn_rnd_rews', RunningMeanVar())
         runn_ext_rews = lcls.get('runn_ext_rews', RunningMeanVar())
@@ -234,7 +234,7 @@ class CorridorDrlhpCallback:
             ns = env.transition(s, a)
             R[s, a] = rew_fn([s], [a], [ns], None)
 
-        Rint = np.array([ext_rew_fn([s]) for s in S])
+        Rint = np.array([rnd_reward_fn([s]) for s in S])
 
         runn_rnd_rews.update_on = True
         runn_ext_rews.update_on = True
