@@ -104,7 +104,7 @@ def make_egreedy(model, venv, epsilon=0.1):
             if np.random.rand() < epsilon:
                 return random_policy.predict(ob, state, *args, **kwargs)
             else:
-                return model.predict(np.array([ob]), np.array([state]), *args, **kwargs)
+                return model.predict(ob, state, *args, **kwargs)
         return LightweightRLModel(predict_fn=predict_fn, env=venv, undo_vec=False)
 
 def get_raw_policy(policy):
