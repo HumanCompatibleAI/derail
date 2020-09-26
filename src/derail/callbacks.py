@@ -7,7 +7,7 @@ import pickle
 
 import numpy as np
 
-from derail.utils import get_horizon, get_raw_policy, get_raw_env, sample_trajectories
+from derail.utils import get_horizon, get_raw_policy, get_raw_env, sample_trajectories, RunningMeanVar
 
 class Callback:
     def start(self, lcls, gbls):
@@ -192,10 +192,13 @@ class CorridorDrlhpCallback:
     def get_snapshot(self, lcls, gbls, idx=0):
         venv = lcls['venv']
         policy = lcls['policy']
-        reward_fn = lcls['reward_fn']
         timesteps = lcls['policy_epoch_timesteps'] * lcls['epoch']
-
+        use_rnd = lcls['use_rnd']
+        rew_fn = lcls['reward_fn']
+        ext_rew_fn = lcls.get('ext_rew_fn', lambda _ : 0)
         obs = lcls.get('obs', [])
+        runn_rnd_rews = lcls.get('runn_rnd_rews', RunningMeanVar())
+        runn_ext_rews = lcls.get('runn_ext_rews', RunningMeanVar())
 
         self._queried.update(obs)
 
@@ -210,13 +213,6 @@ class CorridorDrlhpCallback:
 
         horizon = get_horizon(venv)
 
-        def get_raw_reward(rew_fn):
-            Rs = np.zeros((nS, nA))
-            for s, a in itertools.product(S, A):
-                ns = env.transition(s, a)
-                Rs[s, a] = rew_fn([s], [a], [ns], None)
-            return Rs
-
         def get_occupancy(pol):
             occupancy = np.zeros((horizon+1, nS))
             occupancy[0, 0] = 1.0
@@ -228,15 +224,32 @@ class CorridorDrlhpCallback:
 
             return occupancy.sum(axis=0) / occupancy.sum()
 
-        R = get_raw_reward(reward_fn)
+
+        # Turn off reward running means (side effects)
+        runn_rnd_rews.update_on = False
+        runn_ext_rews.update_on = False
+
+        R = np.zeros((nS, nA))
+        for s, a in itertools.product(S, A):
+            ns = env.transition(s, a)
+            R[s, a] = rew_fn([s], [a], [ns], None)
+
+        Rint = np.array([ext_rew_fn([s]) for s in S])
+
+        runn_rnd_rews.update_on = True
+        runn_ext_rews.update_on = True
+
         O = get_occupancy(P)
 
         fmt_float = lambda x : round(float(x), 2)
 
+
+
         def pos_info(s):
             return {
-                'rew_l' : fmt_float(R[s, 0]),
-                'rew_r' : fmt_float(R[s, 1]),
+                'rew_l' : fmt_float(R[s, 0] - Rint[s]),
+                'rew_r' : fmt_float(R[s, 1] - Rint[s]),
+                'rew_rnd' : fmt_float(Rint[s]),
                 'occ' : fmt_float(O[s]),
                 'queried' : fmt_float(self._queried.get(s, 0)),
             }

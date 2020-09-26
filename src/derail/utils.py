@@ -38,6 +38,48 @@ def monte_carlo_eval_policy(policy, env, **kwargs):
     return rew
 
 
+class RunningMeanVar:
+    def __init__(self, alpha=0.05):
+        self.alpha = alpha
+
+        self.mean = 0
+        self.var = 1.0
+        self.count = 0
+
+        self.update_on = True
+
+    def count_update(self, xs):
+        batch_mean = np.mean(xs)
+        batch_var = np.var(xs)
+        batch_count = len(xs)
+
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * (self.count)
+        m_b = batch_var * (batch_count)
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        new_count = batch_count + self.count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
+
+    def exp_update(self, xs):
+        if self.update_on:
+            batch_mean = np.mean(xs)
+            batch_var = np.var(xs)
+
+            delta = batch_mean - self.mean
+            self.mean += self.alpha * delta
+            self.var = (1 - self.alpha) * (self.var + self.alpha * delta**2)
+
+        return (xs - self.mean) / np.sqrt(self.var)
+
+
 def force_shape(arr, shape):
     if arr.shape == shape:
         return arr
@@ -51,19 +93,19 @@ def force_shape(arr, shape):
 
     return new_arr
 
-def make_egreedy(model, epsilon=0.1):
+def make_egreedy(model, venv, epsilon=0.1):
     if hasattr(model, 'policy_matrix'):
         nA = model.policy_matrix.shape[-1]
         new_policy = (1 - epsilon) * model.policy_matrix + (epsilon / nA) * np.ones_like(model.policy_matrix)
-        return LightweightRLModel.from_matrix(new_policy, env=model.env)
+        return LightweightRLModel.from_matrix(new_policy, env=venv)
     else:
-        random_policy = get_random_policy(model.env)
-        def predict_fn(*args, **kwargs):
+        random_policy = get_random_policy(venv)
+        def predict_fn(ob, state, *args, **kwargs):
             if np.random.rand() < epsilon:
-                return random_policy.predict_fn(*args, **kwargs)
+                return random_policy.predict(ob, state, *args, **kwargs)
             else:
-                return model.predict_fn(*args, **kwargs)
-        return LightweightRLModel(predict_fn=predict_fn, env=model.env)
+                return model.predict(np.array([ob]), np.array([state]), *args, **kwargs)
+        return LightweightRLModel(predict_fn=predict_fn, env=venv, undo_vec=False)
 
 def get_raw_policy(policy):
     if hasattr(policy, "policy_matrix"):
@@ -329,21 +371,22 @@ def get_num_actions(env):
         return prod(env.action_space.nvec)
 
 class LightweightRLModel:
-    def __init__(self, predict_fn, env=None):
+    def __init__(self, predict_fn, env=None, undo_vec=True):
         self.predict_fn = predict_fn
         self.env = env
+        self._undo_vec = undo_vec
 
     def predict(self, ob, state=None, *args, **kwargs):
         # if self.is_vec:
         ob = np.array(ob)
-        is_vec = len(ob.shape) > len(self.env.observation_space.shape)
-        if is_vec:
+        undo_vec  = self._undo_vec and len(ob.shape) > len(self.env.observation_space.shape)
+        if undo_vec:
             ob = ob[0]
             if state is not None:
                 state = state[0]
 
         action, state = self.predict_fn(ob, state, *args, **kwargs)
-        if is_vec:
+        if undo_vec:
             return [action], [state]
         else:
             return action, state

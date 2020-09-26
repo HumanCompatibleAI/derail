@@ -212,16 +212,16 @@ ALGOS = {
 for i, args in enumerate(itertools.product(
     (False, True), # cloning_bonus
     (False, True), # use_rnd
-    (1e-3, 1e-4), # reward_lr
+    (False, True), # egreedy_sampling
     (1e-3, 1e-4), # policy_lr
 )):
-    cloning_bonus, use_rnd, reward_lr, policy_lr = args
+    cloning_bonus, use_rnd, egreedy_sampling, policy_lr = args
 
     ALGOS[f'preferences_{i:04b}'] = functools.partial(
         preferences,
         cloning_bonus=cloning_bonus,
         use_rnd=use_rnd,
-        reward_lr=reward_lr,
+        egreedy_sampling=egreedy_sampling,
         policy_lr=policy_lr,
     )
 

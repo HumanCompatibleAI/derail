@@ -22,47 +22,11 @@ from derail.utils import (
     sample_trajectories,
     get_raw_env,
     get_horizon,
+    make_egreedy,
     ti_hard_value_fn,
     ti_soft_value_fn,
+    RunningMeanVar,
 )
-
-class RunningMeanVar:
-    def __init__(self, alpha=0.05):
-        self.alpha = alpha
-
-        self.mean = 0
-        self.var = 1.0
-        self.count = 0
-
-    def count_update(self, xs):
-        batch_mean = np.mean(xs)
-        batch_var = np.var(xs)
-        batch_count = len(xs)
-
-        delta = batch_mean - self.mean
-        tot_count = self.count + batch_count
-
-        new_mean = self.mean + delta * batch_count / tot_count
-        m_a = self.var * (self.count)
-        m_b = batch_var * (batch_count)
-        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
-        new_var = M2 / (self.count + batch_count)
-
-        new_count = batch_count + self.count
-
-        self.mean = new_mean
-        self.var = new_var
-        self.count = new_count
-
-    def exp_update(self, xs):
-        batch_mean = np.mean(xs)
-        batch_var = np.var(xs)
-
-        delta = batch_mean - self.mean
-        self.mean += self.alpha * delta
-        self.var = (1 - self.alpha) * (self.var + self.alpha * delta**2)
-
-        return (xs - self.mean) / np.sqrt(self.var)
 
 def preferences(
     venv,
@@ -173,6 +137,8 @@ def preferences(
 
     horizon = get_horizon(venv)
 
+    sampling_policy = make_egreedy(policy, venv) if egreedy_sampling else policy
+
     num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
 
     callback.start(locals(), globals())
@@ -180,7 +146,7 @@ def preferences(
         callback.step(locals(), globals())
 
         n_pairs_per_batch = (n_timesteps_per_query / (2 * horizon))
-        trajectories = sample_trajectories(venv, policy, 2 * n_pairs_per_batch)
+        trajectories = sample_trajectories(venv, sampling_policy, 2 * n_pairs_per_batch)
 
         segments = get_segments(trajectories)
 
