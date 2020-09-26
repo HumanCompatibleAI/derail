@@ -45,7 +45,7 @@ def preferences(
     use_rnd=False,
     rnd_lr=1e-3,
     rnd_coeff=1,
-    normalize_extrinsic=True,
+    normalize_extrinsic=False,
     egreedy_sampling=False,
     **kwargs,
 ):
