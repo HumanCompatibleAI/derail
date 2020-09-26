@@ -4,6 +4,7 @@ import functools
 import itertools
 import re
 import os
+import time
 
 import tensorflow as tf
 from stable_baselines.common.vec_env import DummyVecEnv
@@ -319,6 +320,7 @@ def eval_algorithms(
                 fts.append(
                     executor.submit(run_experiment, *spec, total_timesteps=timesteps)
                 )
+                time.sleep(0.2)
             for f in futures.as_completed(fts):
                 log_result(f.result())
     else:
