@@ -98,12 +98,17 @@ def preferences(
 
     # Random network distillation bonus
     if use_rnd:
-        rnd_size = 200
+        rnd_size = 50
+
+        inputs = [rn.obs_inp, rn.act_inp]
+        inputs = [tf.layers.flatten(x) for x in inputs]
+        inputs = tf.concat(inputs, axis=1)
+
         rnd_target_net = build_mlp([32, 32, 32], output_size=rnd_size)
-        rnd_target = sequential(rn.obs_inp, rnd_target_net)
+        rnd_target = sequential(inputs, rnd_target_net)
 
         rnd_pred_net = build_mlp([32, 32, 32], output_size=rnd_size)
-        rnd_pred = sequential(rn.obs_inp, rnd_pred_net)
+        rnd_pred = sequential(inputs, rnd_pred_net)
 
         rnd_loss = tf.reduce_mean((tf.stop_gradient(rnd_target) - rnd_pred)**2)
         rnd_optimizer = tf.train.AdamOptimizer(learning_rate=rnd_lr)
