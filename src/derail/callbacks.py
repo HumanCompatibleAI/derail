@@ -175,6 +175,7 @@ class CorridorDrlhpCallback:
         num_epochs = lcls['num_epochs']
 
         num_calls = min(self.max_num_calls, total_timesteps // self.min_timesteps)
+        num_calls = max(num_calls, 1)
 
         self._epoch_multiple = num_epochs // num_calls
 
