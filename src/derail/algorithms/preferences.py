@@ -32,12 +32,13 @@ def preferences(
     venv,
     expert=None,
     evaluate_trajectories_fn=None,
-    # n_pairs_per_batch=50,
-    n_timesteps_per_query=500,
+    n_pairs_per_batch=50,
+    # n_timesteps_per_query=500,
+    n_timesteps_per_query=None,
     reward_lr=1e-3,
     policy_lr=1e-3,
-    # policy_epoch_timesteps=200,
-    policy_epoch_timesteps=1000,
+    policy_epoch_timesteps=200,
+    # policy_epoch_timesteps=1000,
     total_timesteps=10000,
     cloning_bonus=False,
     state_only=False,
@@ -51,6 +52,11 @@ def preferences(
 ):
     if callback is None:
         callback = Callback()
+
+    if n_pairs_per_batch is None:
+        horizon = get_horizon(venv)
+        n_pairs_per_batch = (n_timesteps_per_query / (2 * horizon))
+
 
     if evaluate_trajectories_fn is None:
         reward_eval_fn = reward_eval_path_fn(venv)
@@ -135,8 +141,6 @@ def preferences(
     sess = tf.get_default_session()
     sess.run(tf.global_variables_initializer())
 
-    horizon = get_horizon(venv)
-
     sampling_policy = make_egreedy(policy, venv) if egreedy_sampling else policy
 
     num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
@@ -145,7 +149,6 @@ def preferences(
     for epoch in range(num_epochs):
         callback.step(locals(), globals())
 
-        n_pairs_per_batch = (n_timesteps_per_query / (2 * horizon))
         trajectories = sample_trajectories(venv, sampling_policy, 2 * n_pairs_per_batch)
 
         segments = get_segments(trajectories)
