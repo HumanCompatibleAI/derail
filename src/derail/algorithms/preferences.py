@@ -116,8 +116,10 @@ def preferences(
 
         runn_rnd_rews = RunningMeanVar(alpha=0.01)
 
-        def rnd_reward_fn(obs, *args, **kwargs):
-            int_rew = sess.run(rnd_loss, feed_dict={rn.obs_ph : obs})
+        def rnd_reward_fn(obs, acts=None, *args, **kwargs):
+            if acts is None:
+                acts = [venv.action_space.sample()]
+            int_rew = sess.run(rnd_loss, feed_dict={rn.obs_ph : obs, rn.act_ph: acts})
             int_rew_old = int_rew
             int_rew = runn_rnd_rews.exp_update(int_rew)
 
