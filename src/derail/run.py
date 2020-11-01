@@ -38,12 +38,17 @@ from derail.algorithms import *
 from derail.callbacks import *
 
 
-def name_with_version(name):
-    if "-v" in name:
-        return name
-    else:
-        return f"{name}-v0"
+def get_full_env_name(name):
+    has_version = "-v" in name
+    is_seals = True
 
+    if not has_version:
+        name = f'{name}-v0'
+
+    if is_seals:
+        name = f'seals/{name}'
+
+    return name
 
 class SimpleTask:
     def __init__(
@@ -98,7 +103,7 @@ class SimpleTask:
         self.callback_kwargs = dict(savepath=savepath)
 
 
-        expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
+        expert_env = gym.make(get_full_env_name(self.expert_env_name))
         expert_env = DummyVecEnv([lambda: expert_env])
 
         total_timesteps = algo_kwargs.get("total_timesteps", None)
@@ -124,7 +129,7 @@ class SimpleTask:
 
         tf.reset_default_graph()
         with tf.Session(config=tf.ConfigProto(device_count={"GPU": 0})) as sess:
-            env = gym.make(f"seals/{name_with_version(self.env_name)}")
+            env = gym.make(get_full_env_name(self.env_name))
             env = DummyVecEnv([lambda: env])
 
             kwargs = self.algo_kwargs.copy()
