@@ -263,9 +263,12 @@ def get_internal_env(env):
     elif hasattr(env, "env"): return env.env
     else: return env
 
+def fixpoint(f, x):
+    nx = f(x)
+    return x if nx == x else fixpoint(f, nx)
+
 def get_raw_env(env):
-    internal_env = get_internal_env(env)
-    return env if internal_env == env else get_raw_env(internal_env)
+    return fixpoint(get_internal_env, env)
 
 def get_horizon(env):
     if hasattr(env, "_max_episode_steps"):
@@ -364,12 +367,6 @@ def render_trajectories(env, policy, n_episodes=5, dt=0.0):
 def prod(seq):
     return functools.reduce(operator.mul, seq, 1)
 
-def get_num_actions(env):
-    if hasattr(env.action_space, 'n'):
-        return env.action_space.n
-    else:
-        return prod(env.action_space.nvec)
-
 class LightweightRLModel:
     def __init__(self, predict_fn, env=None, undo_vec=True):
         self.predict_fn = predict_fn
@@ -390,15 +387,6 @@ class LightweightRLModel:
             return [action], [state]
         else:
             return action, state
-
-    def cross_entropy(self, ob, act):
-        nA = get_num_actions(self.env)
-        EPS = 1e-1
-        expert_act = self.predict(ob)
-        if np.all(act == expert_act):
-            return np.log(1 - EPS + EPS / nA)
-        else:
-            return np.log(EPS / nA)
 
     def __call__(self, ob):
         act, _ = self.predict(ob)

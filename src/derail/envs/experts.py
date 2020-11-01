@@ -120,11 +120,6 @@ def get_parabola_expert(venv, **kwargs):
         target = a * x ** 2 + b * x + c
         return target
 
-    def cross_entropy(ob, act):
-        expert_act, _ = predict_fn(ob)
-        stddev = env._x_step
-        return ((act - expert_act)**2) / (2 * stddev**2)
-
     def predict_fn(ob, state=None, deterministic=False):
         y = ob[1]
         act = get_target(ob) - y
@@ -132,5 +127,4 @@ def get_parabola_expert(venv, **kwargs):
         return act, state
 
     expert = LightweightRLModel(predict_fn=predict_fn, env=venv)
-    setattr(expert, 'cross_entropy', cross_entropy)
     return expert
