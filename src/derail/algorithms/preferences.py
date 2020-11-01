@@ -38,7 +38,6 @@ def preferences(
     policy_epoch_timesteps=200,
     # policy_epoch_timesteps=1000,
     total_timesteps=10000,
-    cloning_bonus=False,
     state_only=False,
     use_rnd=False,
     rnd_lr=1e-3,
@@ -55,11 +54,6 @@ def preferences(
     if evaluate_trajectories_fn is None:
         reward_eval_fn = reward_eval_path_fn(venv)
         evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
-
-        if cloning_bonus:
-            cloning_eval_fn = soft_expert_cloning_eval_fn(expert, venv)
-            eval_fn = lambda path : reward_eval_fn(path) + cloning_eval_fn(path)
-            evaluate_trajectories_fn = get_eval_trajectories_fn(eval_fn)
 
     # Create reward model
     rn = BasicShapedRewardNet(
@@ -296,29 +290,6 @@ def value_diff_eval_path_fn(value_fn):
 
 def one_hot(arr, n):
     return np.eye(n)[arr]
-
-def cloning_eval_path_fn(model):
-    if isinstance(model, ActorCriticRLModel):
-        def eval_fn(path):
-            return model.action_probability(path.obs, actions=path.acts)
-    else:
-        def eval_fn(path):
-            expert_actions = np.array([model.predict(ob)[0] for ob in path.obs])
-            return np.sum(expert_actions == path.acts)
-
-    return eval_fn
-
-def soft_expert_cloning_eval_fn(expert, venv):
-    if hasattr(expert, 'cross_entropy'):
-        def eval_fn(path):
-            return np.sum([expert.cross_entropy(ob, act) for ob, act in zip(path.obs, path.acts)])
-    else:
-        policy, _ = ti_soft_value_fn(venv, beta=10)
-        def eval_fn(path):
-            action_probs = policy[path.obs, path.acts]
-            return np.sum(np.log(action_probs))
-
-    return eval_fn
 
 def reward_eval_path_fn(venv):
     env = get_raw_env(venv)
