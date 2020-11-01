@@ -80,10 +80,12 @@ def preferences(
     reward_train_op = optimizer.minimize(loss)
 
 
-    reward_fn = get_reward_fn_from_model(rn)
+    base_extrinsic_reward_fn = get_reward_fn_from_model(rn)
 
-    # Random network distillation bonus
-    if use_rnd:
+    if not use_rnd:
+        reward_fn = base_extrinsic_reward_fn
+    else:
+        # Random network distillation bonus
         rnd_size = 50
 
         inputs = [rn.obs_inp, rn.act_inp]
@@ -110,8 +112,6 @@ def preferences(
             int_rew = runn_rnd_rews.exp_update(int_rew)
 
             return int_rew
-
-        base_extrinsic_reward_fn = reward_fn
 
         if normalize_extrinsic:
             runn_ext_rews = RunningMeanVar(alpha=0.01)
@@ -268,24 +268,6 @@ def get_reward_fn_from_model(rn):
 
     return get_reward_fn
 
-
-def get_value_fn(model, venv):
-    if isinstance(model, ActorCriticRLModel):
-        return model.value
-    else:
-        value_matrix = ti_hard_value_fn(venv)
-        return (lambda ob : value_matrix[ob])
-
-
-def value_diff_eval_path_fn(value_fn):
-    def eval_fn(path):
-        obs_0 = path.obs[0]
-        obs_f = path.next_obs[-1]
-        return value_fn([obs_f]) - value_fn([obs_0])
-    return eval_fn
-
-def one_hot(arr, n):
-    return np.eye(n)[arr]
 
 def reward_eval_path_fn(venv):
     env = get_raw_env(venv)
