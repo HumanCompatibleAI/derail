@@ -162,31 +162,18 @@ ALGOS = {
     "imitation_gail": imitation_gail,
     "behavioral_cloning": behavioral_cloning,
     "stable_gail": stable_gail,
-    # "stable_gail_2": stable_gail_2,
     "fu_gail": fu_gail,
     "fu_airl": fu_airl,
     "preferences": preferences,
-    # "preferences_rnd": functools.partial(preferences, use_rnd_bonus=True),
+    "preferences_rnd": functools.partial(preferences, use_rnd_bonus=True),
+    "preferences_slow": functools.partial(preferences, policy_lr=1e-4),
+    "preferences_eps": functools.partial(preferences, egreedy_sampling=True),
     "airl": imitation_airl,
 
     "expert": get_expert_algo,
     "random": random_algo,
     "ppo": ppo_algo,
 }
-
-for i, args in enumerate(itertools.product(
-    (False, True), # use_rnd_bonus
-    (False, True), # egreedy_sampling
-    (1e-3, 1e-4), # policy_lr
-)):
-    use_rnd_bonus, egreedy_sampling, policy_lr = args
-
-    ALGOS[f'preferences_{i:04b}'] = functools.partial(
-        preferences,
-        use_rnd_bonus=use_rnd_bonus,
-        egreedy_sampling=egreedy_sampling,
-        policy_lr=policy_lr,
-    )
 
 
 def run_experiment(task_name, algo_name, seed, *args, **kwargs):
