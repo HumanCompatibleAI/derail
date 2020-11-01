@@ -134,11 +134,3 @@ def get_parabola_expert(venv, **kwargs):
     expert = LightweightRLModel(predict_fn=predict_fn, env=venv)
     setattr(expert, 'cross_entropy', cross_entropy)
     return expert
-
-
-def get_corridor_expert(venv, horizon=10, **kwargs):
-    def predict_fn(ob, state=None, deterministic=False):
-        act = 1
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)

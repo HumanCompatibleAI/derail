@@ -120,8 +120,6 @@ class SimpleTask:
         if 'Noisy' in self.env_name and 'pref' in algo_name:
             # callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
             callback = Callback()
-        elif 'orridor' in self.env_name and 'pref' in algo_name:
-            callback = CorridorDrlhpCallback(savepath)
         else:
             callback = Callback()
 
@@ -175,26 +173,6 @@ TASKS = {
     "largest_sum": SimpleTask(env_name="LargestSum", expert_fn=get_largest_sum_expert,),
     "parabola": SimpleTask(env_name="Parabola", expert_fn=get_parabola_expert,),
     "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
-    "corridor_v0": SimpleTask(env_name="Corridor-v0", expert_fn=get_corridor_expert,),
-    # "corridor_v1": SimpleTask(env_name="Corridor-v1", expert_fn=get_corridor_expert,),
-    # "corridor_v2": SimpleTask(env_name="Corridor-v2", expert_fn=get_corridor_expert,),
-    # "corridor_v3": SimpleTask(env_name="Corridor-v3", expert_fn=get_corridor_expert,),
-    # "corridor_v4": SimpleTask(env_name="Corridor-v4", expert_fn=get_corridor_expert,),
-    # "corridor_v5": SimpleTask(env_name="Corridor-v5", expert_fn=get_corridor_expert,),
-    "corridor_v6": SimpleTask(env_name="Corridor-v6", expert_fn=get_corridor_expert,),
-    # "corridor_v7": SimpleTask(env_name="Corridor-v7", expert_fn=get_corridor_expert,),
-    # "corridor_v8": SimpleTask(env_name="Corridor-v8", expert_fn=get_corridor_expert,),
-    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v2": SimpleTask(env_name="NoisyObs-v2", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v3": SimpleTask(env_name="NoisyObs-v3", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v4": SimpleTask(env_name="NoisyObs-v4", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v5": SimpleTask(env_name="NoisyObs-v5", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v6": SimpleTask(env_name="NoisyObs-v6", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v7": SimpleTask(env_name="NoisyObs-v7", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v8": SimpleTask(env_name="NoisyObs-v8", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v9": SimpleTask(env_name="NoisyObs-v9", expert_fn=get_noisyobs_expert,),
     "risky_path": SimpleTask(
         env_name="RiskyPath",
         expert_fn=get_hard_mdp_expert,
