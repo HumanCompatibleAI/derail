@@ -31,12 +31,10 @@ def preferences(
     expert=None,
     evaluate_trajectories_fn=None,
     n_pairs_per_batch=50,
-    # n_timesteps_per_query=500,
     n_timesteps_per_query=None,
     reward_lr=1e-3,
     policy_lr=1e-3,
     policy_epoch_timesteps=200,
-    # policy_epoch_timesteps=1000,
     total_timesteps=10000,
     state_only=False,
     use_rnd=False,
@@ -173,7 +171,6 @@ def preferences(
             },
         )
 
-        # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
 
     results = {}
@@ -285,7 +282,6 @@ def value_diff_eval_path_fn(value_fn):
         obs_0 = path.obs[0]
         obs_f = path.next_obs[-1]
         return value_fn([obs_f]) - value_fn([obs_0])
-    
     return eval_fn
 
 def one_hot(arr, n):
