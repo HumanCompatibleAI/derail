@@ -15,16 +15,6 @@ from stable_baselines.common.policies import MlpPolicy
 
 from imitation.util.rollout import make_sample_until, generate_trajectories
 
-TIMESTAMP = None
-
-def get_last_timestamp():
-    return TIMESTAMP
-
-def get_timestamp():
-    global TIMESTAMP
-    TIMESTAMP = datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
-    return TIMESTAMP
-
 
 def sample_distribution(p, random=None):
     """Samples an integer with probabilities given by p."""

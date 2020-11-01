@@ -26,8 +26,6 @@ from derail.utils import (
     get_hard_mdp_expert,
     get_ppo,
     get_random_policy,
-    get_last_timestamp,
-    get_timestamp,
     monte_carlo_eval_policy,
     ppo_algo,
     tabular_eval_policy,
@@ -39,13 +37,15 @@ from derail.envs.experts import *
 from derail.algorithms import *
 
 
+def get_timestamp():
+    return datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
+
 def get_full_env_name(name):
     has_version = "-v" in name
     is_seals = True
 
     if not has_version:
         name = f'{name}-v0'
-
     if is_seals:
         name = f'seals/{name}'
 
@@ -66,15 +66,12 @@ class SimpleTask:
             expert_env_name = env_name
         if expert_kwargs is None:
             expert_kwargs = {}
-        if algo_kwargs is None:
-            algo_kwargs = {}
         if eval_kwargs is None:
             eval_kwargs = {}
 
         self.env_name = env_name
         self.expert_env_name = expert_env_name
         self.expert_kwargs = expert_kwargs
-        self.algo_kwargs = algo_kwargs
 
         self.expert_fn = expert_fn
 
@@ -102,14 +99,11 @@ class SimpleTask:
             env = gym.make(get_full_env_name(self.env_name))
             env = DummyVecEnv([lambda: env])
 
-            kwargs = self.algo_kwargs.copy()
-            kwargs.update(algo_kwargs)
-
             algo_results = algo(
                 env,
                 expert=expert,
                 expert_venv=expert_env,
-                **kwargs,
+                **algo_kwargs,
             )
             learned_policy = algo_results["policy"]
 
@@ -232,7 +226,7 @@ def eval_algorithms(
 
     def get_experiments():
         for seed, task_name, algo_name in itertools.product(
-            range(num_seeds), tasks, algos
+            range(num_seeds), tasks, algos,
         ):
             if is_compatible(task_name, algo_name):
                 yield task_name, algo_name, seed
@@ -266,7 +260,7 @@ def eval_algorithms(
                 fts.append(
                     executor.submit(run_experiment, *spec, total_timesteps=timesteps)
                 )
-                time.sleep(0.2)
+                time.sleep(0.01)
             for f in futures.as_completed(fts):
                 log_result(f.result())
     else:
