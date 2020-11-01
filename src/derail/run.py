@@ -166,7 +166,7 @@ ALGOS = {
     "fu_gail": fu_gail,
     "fu_airl": fu_airl,
     "preferences": preferences,
-    # "preferences_rnd": functools.partial(preferences, use_rnd=True),
+    # "preferences_rnd": functools.partial(preferences, use_rnd_bonus=True),
     "airl": imitation_airl,
 
     "expert": get_expert_algo,
@@ -175,15 +175,15 @@ ALGOS = {
 }
 
 for i, args in enumerate(itertools.product(
-    (False, True), # use_rnd
+    (False, True), # use_rnd_bonus
     (False, True), # egreedy_sampling
     (1e-3, 1e-4), # policy_lr
 )):
-    use_rnd, egreedy_sampling, policy_lr = args
+    use_rnd_bonus, egreedy_sampling, policy_lr = args
 
     ALGOS[f'preferences_{i:04b}'] = functools.partial(
         preferences,
-        use_rnd=use_rnd,
+        use_rnd_bonus=use_rnd_bonus,
         egreedy_sampling=egreedy_sampling,
         policy_lr=policy_lr,
     )

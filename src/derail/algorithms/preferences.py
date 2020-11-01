@@ -37,7 +37,7 @@ def preferences(
     policy_epoch_timesteps=200,
     total_timesteps=10000,
     state_only=False,
-    use_rnd=False,
+    use_rnd_bonus=False,
     rnd_lr=1e-3,
     rnd_coeff=0.5,
     normalize_extrinsic=False,
@@ -82,7 +82,7 @@ def preferences(
 
     base_extrinsic_reward_fn = get_reward_fn_from_model(rn)
 
-    if not use_rnd:
+    if not use_rnd_bonus:
         reward_fn = base_extrinsic_reward_fn
     else:
         # Random network distillation bonus
@@ -158,7 +158,7 @@ def preferences(
         next_obs = np.concatenate([seg.next_obs for seg in segments])
 
         ops = [reward_train_op]
-        if use_rnd:
+        if use_rnd_bonus:
             ops.append(rnd_train_op)
 
         sess.run(
