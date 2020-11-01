@@ -15,8 +15,6 @@ from stable_baselines.common.policies import MlpPolicy
 from imitation.rewards.reward_net import BasicShapedRewardNet
 from imitation.util import reward_wrapper
 
-from derail.callbacks import Callback
-
 from derail.utils import (
     get_random_policy,
     sample_trajectories,
@@ -42,7 +40,6 @@ def preferences(
     total_timesteps=10000,
     cloning_bonus=False,
     state_only=False,
-    callback=None,
     use_rnd=False,
     rnd_lr=1e-3,
     rnd_coeff=0.5,
@@ -50,9 +47,6 @@ def preferences(
     egreedy_sampling=False,
     **kwargs,
 ):
-    if callback is None:
-        callback = Callback()
-
     if n_pairs_per_batch is None:
         horizon = get_horizon(venv)
         n_pairs_per_batch = (n_timesteps_per_query / (2 * horizon))
@@ -152,10 +146,7 @@ def preferences(
 
     num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
 
-    callback.start(locals(), globals())
     for epoch in range(num_epochs):
-        callback.step(locals(), globals())
-
         trajectories = sample_trajectories(venv, sampling_policy, 2 * n_pairs_per_batch)
 
         segments = get_segments(trajectories)
@@ -190,15 +181,10 @@ def preferences(
 
         # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
-    epoch += 1
-
-    callback.step(locals(), globals())
 
     results = {}
     results["reward_model"] = rn
     results["policy"] = policy
-
-    callback.end(locals(), globals())
 
     return results
 

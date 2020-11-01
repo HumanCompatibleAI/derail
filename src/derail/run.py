@@ -35,7 +35,6 @@ from derail.utils import (
 from derail.envs import *
 from derail.envs.experts import *
 from derail.algorithms import *
-from derail.callbacks import *
 
 
 def get_full_env_name(name):
@@ -60,8 +59,6 @@ class SimpleTask:
         expert_fn=train_rl,
         eval_policy_fn=monte_carlo_eval_policy,
         eval_kwargs=None,
-        callback_cls=Callback,
-        callback_kwargs=None,
     ):
         if expert_env_name is None:
             expert_env_name = env_name
@@ -71,8 +68,6 @@ class SimpleTask:
             algo_kwargs = {}
         if eval_kwargs is None:
             eval_kwargs = {}
-        if callback_kwargs is None:
-            callback_kwargs = {}
 
         self.env_name = env_name
         self.expert_env_name = expert_env_name
@@ -85,23 +80,8 @@ class SimpleTask:
         self.eval_kwargs = dict(n_eval_episodes=100, deterministic=False)
         self.eval_kwargs.update(eval_kwargs)
 
-        self.callback_cls = callback_cls
-        self.callback_kwargs = callback_kwargs
-
     def run(self, algo, seed, **algo_kwargs):
-        # XXX Hack
-        self.callback_cls = CollectorCallback
-
         algo_name = algo_kwargs['algo_name']
-
-        savepath = os.path.join(
-            './data',
-            get_last_timestamp(),
-            f'{self.env_name}-{algo_name}-{seed}',
-        )
-
-        self.callback_kwargs = dict(savepath=savepath)
-
 
         expert_env = gym.make(get_full_env_name(self.expert_env_name))
         expert_env = DummyVecEnv([lambda: expert_env])
@@ -112,16 +92,6 @@ class SimpleTask:
         if total_timesteps is not None and "total_timesteps" not in expert_kwargs:
             expert_kwargs["total_timesteps"] = total_timesteps
         expert = self.expert_fn(expert_env, **expert_kwargs)
-
-        # callback = self.callback_cls(**self.callback_kwargs)
-
-        # XXX Hack
-        # XXX Hack
-        if 'Noisy' in self.env_name and 'pref' in algo_name:
-            # callback = CollectorCallback(savepath, algo_xfn=drlhp_extractor, env_xfn=noisy_obs_extractor)
-            callback = Callback()
-        else:
-            callback = Callback()
 
         task_results = {}
 
@@ -137,7 +107,6 @@ class SimpleTask:
                 env,
                 expert=expert,
                 expert_venv=expert_env,
-                callback=callback,
                 **kwargs,
             )
             learned_policy = algo_results["policy"]
@@ -292,19 +261,14 @@ def eval_algorithms(
         algo = result["algo"]
         ret = result["return"]
         seed = result["seed"]
-        callback_eval = result.get("callback", None)
 
-        include_seed = True
+        include_seed = False
         if include_seed:
             maybe_seed = f" {seed}"
         else:
             maybe_seed = ""
 
-        if callback_eval is not None:
-            for timesteps, avg_ret in callback_eval:
-                log_line(f"{task} {algo} {seed} {timesteps} {avg_ret:.2f}")
-        else:
-            log_line(f"{task} {algo}{maybe_seed} {ret:.2f}")
+        log_line(f"{task} {algo}{maybe_seed} {ret:.2f}")
 
     if parallel:
         with futures.ProcessPoolExecutor(max_workers=None) as executor:
