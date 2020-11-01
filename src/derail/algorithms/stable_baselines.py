@@ -1,7 +1,6 @@
 import uuid
 
 from stable_baselines import GAIL
-# from stable_baselines import GAIL2
 from stable_baselines.gail import ExpertDataset, generate_expert_traj
 
 from derail.utils import (
@@ -64,28 +63,6 @@ def stable_gail(
     dataset = get_expert_dataset(expert, expert_venv, total_timesteps)
 
     policy = GAIL("MlpPolicy", venv, dataset)
-    policy.learn(total_timesteps=total_timesteps)
-
-    results = {}
-    results["policy"] = policy
-
-    return results
-
-def stable_gail_2(
-    venv,
-    expert=None,
-    expert_venv=None,
-    state_only=False,
-    total_timesteps=10000,
-    gen_batch_size=200,
-    disc_batch_size=100,
-    policy_lr=1e-3,
-    callback=None,
-    **kwargs,
-):
-    dataset = get_expert_dataset(expert, expert_venv, total_timesteps)
-
-    policy = GAIL2("MlpPolicy", venv, dataset)
     policy.learn(total_timesteps=total_timesteps)
 
     results = {}

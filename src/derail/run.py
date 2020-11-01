@@ -7,6 +7,8 @@ import os
 import time
 
 import tensorflow as tf
+
+# Remove excessive tensorflow warnings
 try:
     from tensorflow.python.util import module_wrapper as deprecation
 except ImportError:
