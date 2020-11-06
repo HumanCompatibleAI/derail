@@ -23,6 +23,7 @@ setup(
         "rllab @ git+https://github.com/pedrofreire/rllab.git",
         "inverse_rl @ git+https://github.com/pedrofreire/inverse_rl.git",
         "imitation @ git+https://github.com/pedrofreire/imitation@rollout-fix",
+        "seals @ git+https://github.com/HumanCompatibleAI/seals@b0c56bc895139b1174e045db9d381dd6919e605b",
     ],
     tests_require=TESTS_REQUIRE,
     extras_require={
