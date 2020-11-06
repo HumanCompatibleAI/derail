@@ -213,8 +213,8 @@ def is_compatible(task_name, algo_name):
         "fu_airl",
         "fu_gail",
     ]
-    if algo_name in has_fu_conflict and any(
-        pattern in task_name for pattern in fu_algos
+    if algo_name in fu_algos and any(
+        pattern in task_name for pattern in has_fu_conflict
     ):
         return False
 
