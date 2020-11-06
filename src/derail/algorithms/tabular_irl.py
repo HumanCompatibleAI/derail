@@ -5,6 +5,7 @@ from scipy.special import logsumexp
 
 from derail.utils import (
     get_horizon,
+    get_initial_state_dist,
     get_raw_env,
     LightweightRLModel,
     LinearRewardModel,
