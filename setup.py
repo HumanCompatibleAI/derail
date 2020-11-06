@@ -3,6 +3,8 @@
 from setuptools import find_packages, setup
 import src.derail  # pytype: disable=import-error
 
+TESTS_REQUIRE = []
+
 setup(
     name="derail",
     version=src.derail.__version__,

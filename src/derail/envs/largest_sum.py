@@ -1,42 +1,48 @@
-"""Environment testing scalability to high-dimensionality."""
+"""Environment testing scalability to high-dimensional tasks."""
 
-import gym
-from gym.spaces import Box
+from gym import spaces
 import numpy as np
 
-from derail.envs.base_env import BaseEnv
-
-from derail.utils import LightweightRLModel
+from derail.envs import base_envs
 
 
-class LargestSumEnv(BaseEnv):
-    def __init__(self, length=50):
-        self.length = length
-        self.observation_space = Box(low=0.0, high=1.0, shape=(length,))
-        super().__init__(num_actions=2)
+class LargestSumEnv(base_envs.ResettableMDP):
+    """High-dimensional linear classification problem.
 
-    def sample_initial_state(self):
-        return self.np_random.rand(self.length)
+    This environment evaluates how algorithms scale with increasing
+    dimensionality.  It is a classification task with binary actions
+    and uniformly sampled states s in [0, 1]**L.  The agent is
+    rewarded for taking action 1 if the sum of the first half x[:L//2]
+    is greater than the sum of the second half x[L//2:], and otherwise
+    is rewarded for taking action 0.
+    """
 
-    def reward_fn(self, state, act, next_state):
-        label = np.sum(state[::2]) < np.sum(state[1::2])
-        return int(act == label)
+    def __init__(self, length: int = 50):
+        """Build environment.
 
-    def transition_fn(self, state, action):
+        Args:
+            length: dimensionality of state space vector.
+        """
+        self._length = length
+        state_space = spaces.Box(low=0.0, high=1.0, shape=(length,))
+        super().__init__(
+            state_space=state_space, action_space=spaces.Discrete(2),
+        )
+
+    def terminal(self, state: np.ndarray, n_actions_taken: int) -> bool:
+        """Always returns True, since this task should have a 1-timestep horizon."""
+        return True
+
+    def initial_state(self) -> np.ndarray:
+        """Returns vector sampled uniformly in [0, 1]**L."""
+        return self.rand_state.rand(self._length)
+
+    def reward(self, state: np.ndarray, act: int, next_state: np.ndarray) -> float:
+        """Returns +1.0 reward when action is the right label and 0.0 otherwise."""
+        n = self._length
+        label = np.sum(state[: n // 2]) > np.sum(state[n // 2 :])
+        return float(act == label)
+
+    def transition(self, state: np.ndarray, action: int) -> np.ndarray:
+        """Returns same state."""
         return state
-
-
-def get_largest_sum_expert(venv):
-    def predict_fn(ob, state=None, deterministic=False):
-        return int(np.sum(ob[::2]) < np.sum(ob[1::2])), state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
-
-_horizon_v0 = 1
-
-gym.register(
-    id=f"seals/LargestSum-v0",
-    entry_point=f"derail.envs:LargestSumEnv",
-    max_episode_steps=_horizon_v0,
-)

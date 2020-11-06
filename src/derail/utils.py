@@ -1,5 +1,6 @@
 from datetime import datetime
 import functools
+import operator
 import time
 
 from gym.spaces import Discrete
@@ -15,11 +16,8 @@ from stable_baselines.common.policies import MlpPolicy
 from imitation.util.rollout import make_sample_until, generate_trajectories
 
 
-def get_timestamp():
-    return datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
-
-
 def sample_distribution(p, random=None):
+    """Samples an integer with probabilities given by p."""
     if random is None:
         random = np.random
     return random.choice(np.arange(len(p)), p=p)
@@ -30,31 +28,80 @@ def monte_carlo_eval_policy(policy, env, **kwargs):
     return rew
 
 
-def get_reward_matrix(env):
-    if hasattr(env, "reward_matrix"):
-        return env.reward_matrix
-    if hasattr(env, "get_reward_matrix"):
-        return env.get_reward_matrix()
+class RunningMeanVar:
+    def __init__(self, alpha=0.05):
+        self.alpha = alpha
 
-    num_states = env.observation_space.n
-    num_actions = env.action_space.n
-    reward_matrix = np.empty((num_states, num_actions, num_states))
+        self.mean = 0
+        self.var = 1.0
+        self.count = 0
 
-    for state in range(num_states):
-        for action in range(num_actions):
-            for next_state in range(num_states):
-                reward_matrix[state, action, next_state] = env.reward_fn(
-                    state, action, next_state
-                )
+        self.update_on = True
 
-    return reward_matrix
+    def count_update(self, xs):
+        batch_mean = np.mean(xs)
+        batch_var = np.var(xs)
+        batch_count = len(xs)
 
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * (self.count)
+        m_b = batch_var * (batch_count)
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        new_count = batch_count + self.count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
+
+    def exp_update(self, xs):
+        if self.update_on:
+            batch_mean = np.mean(xs)
+            batch_var = np.var(xs)
+
+            delta = batch_mean - self.mean
+            self.mean += self.alpha * delta
+            self.var = (1 - self.alpha) * (self.var + self.alpha * delta**2)
+
+        return (xs - self.mean) / np.sqrt(self.var)
+
+
+def force_shape(arr, shape):
+    if arr.shape == shape:
+        return arr
+
+    new_arr = np.empty(shape)
+
+    if len(arr.shape) == 1:
+        new_arr[:] = arr[:, None, None]
+    elif len(arr.shape) == 2:
+        new_arr[:] = arr[:, :, None]
+
+    return new_arr
+
+def make_egreedy(model, venv, epsilon=0.1):
+    if hasattr(model, 'policy_matrix'):
+        nA = model.policy_matrix.shape[-1]
+        new_policy = (1 - epsilon) * model.policy_matrix + (epsilon / nA) * np.ones_like(model.policy_matrix)
+        return LightweightRLModel.from_matrix(new_policy, env=venv)
+    else:
+        random_policy = get_random_policy(venv)
+        def predict_fn(ob, state, *args, **kwargs):
+            if np.random.rand() < epsilon:
+                return random_policy.predict(ob, state, *args, **kwargs)
+            else:
+                return model.predict(ob, state, *args, **kwargs)
+        return LightweightRLModel(predict_fn=predict_fn, env=venv, undo_vec=False)
 
 def get_raw_policy(policy):
     if hasattr(policy, "policy_matrix"):
         return policy.policy_matrix
     elif hasattr(policy, "action_probability"):
-        env = get_raw_env(policy.env)
+        env = policy.env
         states = list(range(env.observation_space.n))
         probs = policy.action_probability(states)
         matrix = np.empty((get_horizon(env), *probs.shape))
@@ -63,20 +110,26 @@ def get_raw_policy(policy):
     else:
         return policy
 
+def get_initial_state_dist(env):
+    return get_raw_env(env).initial_state_dist
+
+def get_transition_matrix(env):
+    return get_raw_env(env).transition_matrix
 
 def tabular_eval_policy(policy, env, **kwargs):
-    env = get_raw_env(env)
     policy = get_raw_policy(policy)
 
     if not isinstance(policy, np.ndarray):
         return monte_carlo_eval_policy(policy, env, **kwargs)
 
-    occupancy = env.initial_state_distribution()
+    occupancy = get_initial_state_dist(env)
 
     returns = 0
 
     rewards = get_reward_matrix(env)
-    transition = env.transition_matrix
+
+    transition = get_transition_matrix(env)
+    rewards = force_shape(rewards, transition.shape)
 
     horizon = get_horizon(env)
     state_action_rewards = np.sum(transition * rewards, axis=2)
@@ -90,31 +143,89 @@ def tabular_eval_policy(policy, env, **kwargs):
 
 
 # todo: remove code duplication
-def hard_value_iteration(env):
-    horizon = get_horizon(env)
-    num_states = env.observation_space.n
-    num_actions = env.action_space.n
+def ti_hard_value_fn(venv, discount=0.9, num_iter=200):
+    """Time-independent value function"""
+
+    env = get_raw_env(venv)
+
+    horizon = get_horizon(venv)
+    nS = env.observation_space.n
+    nA = env.action_space.n
+
     reward_matrix = get_reward_matrix(env)
+    reward_matrix = force_shape(reward_matrix, (nS, nA, nS))
+
     dynamics = env.transition_matrix
 
-    Q = np.empty((horizon, num_states, num_actions))
-    V = np.empty((horizon + 1, num_states))
+    Q = np.empty((nS, nA))
+    V = np.zeros((nS,))
 
-    V[-1] = np.zeros(num_states)
+    for _ in range(num_iter):
+        for s in range(nS):
+            for a in range(nA):
+                Q[s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + discount * V[:])
+        V = np.max(Q, axis=1)
+
+    return V
+
+def ti_soft_value_fn(venv, discount=0.9, beta=10, num_iter=200):
+    """Time-independent value function"""
+
+    env = get_raw_env(venv)
+
+    horizon = get_horizon(venv)
+    nS = env.observation_space.n
+    nA = env.action_space.n
+
+    R = get_reward_matrix(env)
+    R = force_shape(R, (nS, nA, nS))
+
+    T = env.transition_matrix
+
+    Q = np.empty((nS, nA))
+    V = np.zeros((nS,))
+
+    for _ in range(num_iter):
+        Q = np.sum(T * R, axis=2) + discount * np.tensordot(T, V, axes=(2, 0))
+        V = logsumexp(beta * Q, axis=1) / beta
+
+    policy = np.exp(beta * (Q - V[:, None]))
+    policy /= policy.sum(axis=1, keepdims=True)
+
+    return policy, {'V' : V, 'Q' : Q}
+
+def hard_value_iteration(venv, discount=1.0):
+    env = get_raw_env(venv)
+
+    horizon = get_horizon(venv)
+    nS = env.observation_space.n
+    nA = env.action_space.n
+
+    reward_matrix = get_reward_matrix(env)
+    reward_matrix = force_shape(reward_matrix, (nS, nA, nS))
+
+    dynamics = env.transition_matrix
+
+    Q = np.empty((horizon, nS, nA))
+    V = np.empty((horizon + 1, nS))
+
+    V[-1] = np.zeros(nS)
 
     for t in reversed(range(horizon)):
-        for s in range(num_states):
-            for a in range(num_actions):
-                Q[t, s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + V[t + 1, :])
+        for s in range(nS):
+            for a in range(nA):
+                Q[t, s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + discount * V[t + 1, :])
         V[t] = np.max(Q[t], axis=1)
 
-    policy = np.eye(num_actions)[Q.argmax(axis=2)]
+    policy = np.eye(nA)[Q.argmax(axis=2)]
 
     return policy
 
 
-def soft_value_iteration(env):
-    horizon = get_horizon(env)
+def soft_value_iteration(venv, beta=10):
+    env = get_raw_env(venv)
+
+    horizon = get_horizon(venv)
     num_states = env.observation_space.n
     num_actions = env.action_space.n
     reward_matrix = get_reward_matrix(env)
@@ -136,19 +247,53 @@ def soft_value_iteration(env):
     return policy
 
 
+def get_internal_env(env):
+    if hasattr(env, "venv"): return env.venv
+    elif hasattr(env, "envs"): return env.envs[0]
+    elif hasattr(env, "env"): return env.env
+    else: return env
+
+def fixpoint(f, x):
+    nx = f(x)
+    return x if nx == x else fixpoint(f, nx)
+
 def get_raw_env(env):
-    if hasattr(env, "venv"):
-        return get_raw_env(env.venv)
-    elif hasattr(env, "envs"):
-        return env.envs[0]
+    return fixpoint(get_internal_env, env)
+
+def get_horizon(env):
+    if hasattr(env, "_max_episode_steps"):
+        return env._max_episode_steps
+    if hasattr(env, "horizon"):
+        return env.horizon
+    elif get_internal_env(env) != env:
+        return get_horizon(get_internal_env(env))
     else:
-        return env
+        trajs = sample_trajectories(env, get_random_policy(env))
+        horizon = sum(len(traj.obs) - 1 for traj in trajs) // len(trajs)
+        return horizon
+
+def get_reward_matrix(env):
+    if hasattr(env, "reward_matrix"):
+        return env.reward_matrix
+    if hasattr(env, "get_reward_matrix"):
+        return env.get_reward_matrix()
+    elif get_internal_env(env) != env:
+        return get_reward_matrix(get_internal_env(env))
+    else:
+        nS = env.observation_space.n
+        nA = env.action_space.n
+        reward_matrix = np.empty((nS, nA, nS))
+        S = range(nS)
+        A = range(nA)
+
+        for s, a, sn in itertools.product(S, A, S):
+            reward_matrix[s, a, sn] = env.reward_fn(s, a, sn)
+        return reward_matrix
+
 
 
 def get_mdp_expert(venv, is_hard=True, **kwargs):
-    env = get_raw_env(venv)
-
-    policy = hard_value_iteration(env) if is_hard else soft_value_iteration(env)
+    policy = hard_value_iteration(venv) if is_hard else soft_value_iteration(venv)
     return LightweightRLModel.from_matrix(policy, env=venv)
 
 
@@ -190,17 +335,6 @@ def sample_trajectories(env, expert, n_episodes=None, n_timesteps=None):
     return expert_trajectories
 
 
-def get_horizon(venv):
-    env = get_raw_env(venv)
-    if hasattr(env, "horizon"):
-        return env.horizon
-    if hasattr(env, "_max_episode_steps"):
-        return env._max_episode_steps
-    else:
-        trajs = sample_trajectories(env, get_random_policy(env))
-        horizon = sum(len(traj.obs) - 1 for traj in trajs) // len(trajs)
-        return horizon
-
 
 def render_trajectories(env, policy, n_episodes=5, dt=0.0):
     for i in range(n_episodes):
@@ -220,23 +354,26 @@ def render_trajectories(env, policy, n_episodes=5, dt=0.0):
 
     return None
 
+def prod(seq):
+    return functools.reduce(operator.mul, seq, 1)
 
 class LightweightRLModel:
-    def __init__(self, predict_fn, env=None):
+    def __init__(self, predict_fn, env=None, undo_vec=True):
         self.predict_fn = predict_fn
         self.env = env
+        self._undo_vec = undo_vec
 
     def predict(self, ob, state=None, *args, **kwargs):
         # if self.is_vec:
         ob = np.array(ob)
-        is_vec = len(ob.shape) > len(self.env.observation_space.shape)
-        if is_vec:
+        undo_vec  = self._undo_vec and len(ob.shape) > len(self.env.observation_space.shape)
+        if undo_vec:
             ob = ob[0]
             if state is not None:
                 state = state[0]
 
         action, state = self.predict_fn(ob, state, *args, **kwargs)
-        if is_vec:
+        if undo_vec:
             return [action], [state]
         else:
             return action, state
@@ -287,7 +424,7 @@ def get_random_policy(venv, tabular=True):
     if tabular:
         num_states = env.observation_space.n
         num_actions = env.action_space.n
-        matrix = np.full((get_horizon(env), num_states, num_actions), 1 / num_actions)
+        matrix = np.full((get_horizon(venv), num_states, num_actions), 1 / num_actions)
         return LightweightRLModel.from_matrix(matrix, env=venv)
     else:
 
@@ -338,3 +475,9 @@ def grid_transition_fn(
     next_state = np.array([next_x, next_y], dtype=state.dtype)
 
     return next_state
+
+
+def one_hot_encoding(pos: int, size: int) -> np.ndarray:
+    """Returns a 1-D hot encoding of a given position and size."""
+    return np.eye(size)[pos]
+

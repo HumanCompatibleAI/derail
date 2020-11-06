@@ -1,4 +1,6 @@
 from collections import Counter, defaultdict, deque, namedtuple
+import collections
+
 import math
 import functools
 
@@ -7,6 +9,7 @@ import tensorflow as tf
 
 from stable_baselines.common.vec_env import DummyVecEnv, VecEnv
 from stable_baselines import PPO2
+from stable_baselines.common.base_class import ActorCriticRLModel
 from stable_baselines.common.policies import MlpPolicy
 
 from imitation.rewards.reward_net import BasicShapedRewardNet
@@ -16,24 +19,39 @@ from derail.utils import (
     get_random_policy,
     sample_trajectories,
     get_raw_env,
+    get_horizon,
+    make_egreedy,
+    ti_hard_value_fn,
+    ti_soft_value_fn,
+    RunningMeanVar,
 )
-
 
 def preferences(
     venv,
+    expert=None,
     evaluate_trajectories_fn=None,
     n_pairs_per_batch=50,
+    n_timesteps_per_query=None,
     reward_lr=1e-3,
     policy_lr=1e-3,
     policy_epoch_timesteps=200,
     total_timesteps=10000,
     state_only=False,
-    callback=None,
+    use_rnd_bonus=False,
+    rnd_lr=1e-3,
+    rnd_coeff=0.5,
+    normalize_extrinsic=False,
+    egreedy_sampling=False,
     **kwargs,
 ):
+    if n_pairs_per_batch is None:
+        horizon = get_horizon(venv)
+        n_pairs_per_batch = (n_timesteps_per_query / (2 * horizon))
+
 
     if evaluate_trajectories_fn is None:
-        evaluate_trajectories_fn = get_eval_trajectories_fn(venv)
+        reward_eval_fn = reward_eval_path_fn(venv)
+        evaluate_trajectories_fn = get_eval_trajectories_fn(reward_eval_fn)
 
     # Create reward model
     rn = BasicShapedRewardNet(
@@ -45,9 +63,6 @@ def preferences(
         state_only=state_only,
     )
 
-    # Create learner from reward model
-    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, get_reward_fn_from_model(rn))
-    policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
 
     # Compute trajectory probabilities
     preferences_ph = tf.placeholder(
@@ -64,16 +79,67 @@ def preferences(
     optimizer = tf.train.AdamOptimizer(learning_rate=reward_lr)
     reward_train_op = optimizer.minimize(loss)
 
+
+    base_extrinsic_reward_fn = get_reward_fn_from_model(rn)
+
+    if not use_rnd_bonus:
+        reward_fn = base_extrinsic_reward_fn
+    else:
+        # Random network distillation bonus
+        rnd_size = 50
+
+        inputs = [rn.obs_inp, rn.act_inp]
+        inputs = [tf.layers.flatten(x) for x in inputs]
+        inputs = tf.concat(inputs, axis=1)
+
+        rnd_target_net = build_mlp([32, 32, 32], output_size=rnd_size)
+        rnd_target = sequential(inputs, rnd_target_net)
+
+        rnd_pred_net = build_mlp([32, 32, 32], output_size=rnd_size)
+        rnd_pred = sequential(inputs, rnd_pred_net)
+
+        rnd_loss = tf.reduce_mean((tf.stop_gradient(rnd_target) - rnd_pred)**2)
+        rnd_optimizer = tf.train.AdamOptimizer(learning_rate=rnd_lr)
+        rnd_train_op = rnd_optimizer.minimize(rnd_loss)
+
+        runn_rnd_rews = RunningMeanVar(alpha=0.01)
+
+        def rnd_reward_fn(obs, acts=None, *args, **kwargs):
+            if acts is None:
+                acts = [venv.action_space.sample()]
+            int_rew = sess.run(rnd_loss, feed_dict={rn.obs_ph : obs, rn.act_ph: acts})
+            int_rew_old = int_rew
+            int_rew = runn_rnd_rews.exp_update(int_rew)
+
+            return int_rew
+
+        if normalize_extrinsic:
+            runn_ext_rews = RunningMeanVar(alpha=0.01)
+
+        def extrinsic_reward_fn(*args, **kwargs):
+            ext_rew = base_extrinsic_reward_fn(*args, **kwargs)
+            if normalize_extrinsic:
+                ext_rew = runn_ext_rews.exp_update(ext_rew)
+            return ext_rew
+
+        def reward_fn(*args, **kwargs):
+            return extrinsic_reward_fn(*args, **kwargs) + rnd_coeff * rnd_reward_fn(*args, **kwargs)
+
+    # Create learner from reward model
+    venv_train = reward_wrapper.RewardVecEnvWrapper(venv, reward_fn)
+    policy = PPO2(MlpPolicy, venv_train, learning_rate=policy_lr)
+
+
     # Start training
     sess = tf.get_default_session()
     sess.run(tf.global_variables_initializer())
 
-    num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
-    for epoch in range(num_epochs):
-        if callback is not None:
-            callback(locals(), globals())
+    sampling_policy = make_egreedy(policy, venv) if egreedy_sampling else policy
 
-        trajectories = sample_trajectories(venv, policy, 2 * n_pairs_per_batch)
+    num_epochs = int(np.ceil(total_timesteps / policy_epoch_timesteps))
+
+    for epoch in range(num_epochs):
+        trajectories = sample_trajectories(venv, sampling_policy, 2 * n_pairs_per_batch)
 
         segments = get_segments(trajectories)
 
@@ -91,8 +157,12 @@ def preferences(
         acts = np.concatenate([seg.acts for seg in segments])
         next_obs = np.concatenate([seg.next_obs for seg in segments])
 
+        ops = [reward_train_op]
+        if use_rnd_bonus:
+            ops.append(rnd_train_op)
+
         sess.run(
-            reward_train_op,
+            ops,
             feed_dict={
                 rn.obs_ph: obs,
                 rn.act_ph: acts,
@@ -101,11 +171,7 @@ def preferences(
             },
         )
 
-        # policy.set_env(venv_train)  # Possibly redundant?
         policy.learn(total_timesteps=policy_epoch_timesteps)
-
-    if callback is not None:
-        callback(locals(), globals())
 
     results = {}
     results["reward_model"] = rn
@@ -115,6 +181,39 @@ def preferences(
 
 
 Segment = namedtuple("Segment", ["obs", "acts", "next_obs"])
+
+def build_mlp(hid_sizes,
+              output_size=1,
+              name=None,
+              activation=tf.nn.relu,
+              initializer=None,
+              ):
+  """Constructs an MLP, returning an ordered dict of layers."""
+  layers = collections.OrderedDict()
+
+  # Hidden layers
+  for i, size in enumerate(hid_sizes):
+    key = f"{name}_dense{i}"
+    layer = tf.layers.Dense(size, activation=activation,
+                            kernel_initializer=initializer,
+                            name=key)  # type: tf.layers.Layer
+    layers[key] = layer
+
+  # Final layer
+  layer = tf.layers.Dense(output_size, kernel_initializer=initializer,
+                          name=f"{name}_dense_final")  # type: tf.layers.Layer
+  layers[f"{name}_dense_final"] = layer
+
+  return layers
+
+def sequential(inputs,
+               layers,
+               ):
+  """Applies a sequence of layers to an input."""
+  output = inputs
+  for layer in layers.values():
+    output = layer(output)
+  return output
 
 
 def get_segments(trajectories):
@@ -145,40 +244,18 @@ def get_segments(trajectories):
     return segments
 
 
-def get_eval_trajectories_fn(venv):
-    eval_fn = get_eval_trajectory_fn_from_env(venv)
-
+def get_eval_trajectories_fn(eval_fn):
     def eval_trajectories_fn(trajectories):
-        returns = np.array([eval_fn(trj) for trj in trajectories])
-        return returns
+        return np.array([eval_fn(trj) for trj in trajectories])
 
     return eval_trajectories_fn
 
 
-def get_eval_trajectory_fn_from_env(venv):
-    env = get_raw_env(venv)
-    if hasattr(env, "eval_trajectory_fn"):
-        return env.eval_trajectory_fn
-    elif hasattr(env, "reward_fn"):
-        return get_eval_path_fn_from_reward(env.reward_fn, env.state_from_ob)
+def get_obs_acts_next_obs(path):
+    if isinstance(path, Segment):
+        return zip(path.obs, path.acts, path.next_obs)
     else:
-        raise Error("No eval_trajectory_fn in environment")
-
-
-def get_eval_path_fn_from_reward(reward_fn, state_fn):
-    def get_obs_acts_next_obs(path):
-        if isinstance(path, Segment):
-            return zip(path.obs, path.acts, path.next_obs)
-        else:
-            return zip(path.obs[:-1], path.acts, path.obs[1:])
-
-    def eval_path_fn(path):
-        return sum(
-            reward_fn(state_fn(ob), ac, state_fn(next_ob))
-            for ob, ac, next_ob in get_obs_acts_next_obs(path)
-        )
-
-    return eval_path_fn
+        return zip(path.obs[:-1], path.acts, path.obs[1:])
 
 
 def get_reward_fn_from_model(rn):
@@ -190,3 +267,30 @@ def get_reward_fn_from_model(rn):
         )
 
     return get_reward_fn
+
+
+def reward_eval_path_fn(venv):
+    env = get_raw_env(venv)
+    if hasattr(env, "eval_trajectory_fn"):
+        return env.eval_trajectory_fn
+    elif hasattr(env, "reward"):
+        if hasattr(env, "state_from_ob"):
+            state_fn = env.state_from_ob
+        else:
+            state_fn = None
+        return eval_fn_from_reward(env.reward, state_fn=state_fn)
+    else:
+        raise Exception("No eval_trajectory_fn in environment")
+
+
+def eval_fn_from_reward(reward_fn, state_fn=None):
+    if state_fn is None:
+        state_fn = lambda x : x
+
+    def eval_path_fn(path):
+        return sum(
+            reward_fn(state_fn(ob), ac, state_fn(next_ob))
+            for ob, ac, next_ob in get_obs_acts_next_obs(path)
+        )
+
+    return eval_path_fn

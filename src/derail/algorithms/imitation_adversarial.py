@@ -30,7 +30,6 @@ def adversarial_learning(
     policy_lr=1e-3,
     reward_lr=1e-3,
     is_airl=True,
-    callback=None,
     **kwargs,
 ):
     # Set up generator
@@ -80,13 +79,9 @@ def adversarial_learning(
     sess.run(tf.global_variables_initializer())
 
     num_epochs = int(np.ceil(total_timesteps / gen_batch_size))
-    for epoch in range(num_epochs):
-        timesteps = gen_batch_size * epoch
-        if callback is not None:
-            callback(locals(), globals())
 
+    for epoch in range(num_epochs):
         # Train gen
-        # gen_policy.set_env(venv_train_buffering)  # possibly redundant
         gen_policy.learn(total_timesteps=gen_batch_size, reset_num_timesteps=True)
         gen_replay_buffer.store(venv_train_buffering.pop_transitions())
 
@@ -123,10 +118,6 @@ def adversarial_learning(
                     discrim.log_policy_act_prob_ph: log_act_prob,
                 },
             )
-
-    timesteps = total_timesteps
-    if callback is not None:
-        callback(locals(), globals())
 
     results = {}
     results["reward_model"] = rn

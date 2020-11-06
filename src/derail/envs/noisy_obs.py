@@ -1,92 +1,69 @@
-"""Environment testing for scalability against noise."""
+"""Environment testing for robustness to noise."""
 
-import itertools
-
-import gym
-from gym.spaces import Box
+from gym import spaces
 import numpy as np
 
-from derail.envs.base_env import BaseEnv
-
-from derail.utils import (
-    get_raw_env,
-    grid_transition_fn,
-    LightweightRLModel,
-)
+from derail.envs import base_envs
+from derail import utils
 
 
-class NoisyObsEnv(BaseEnv):
-    def __init__(self, *args, size=5, noise_length=20, **kwargs):
-        self.size = size
-        self.noise_length = noise_length
-        self.goal = np.array([self.size // 2, self.size // 2])
+class NoisyObsEnv(base_envs.ResettablePOMDP):
+    """Simple gridworld with noisy observations.
 
-        self.observation_space = Box(
-            low=np.concatenate(([0, 0], np.full(self.noise_length, -np.inf),)),
-            high=np.concatenate(
-                ([size - 1, size - 1], np.full(self.noise_length, np.inf),)
+    The agent randomly starts at the one of the corners of an MxM grid and
+    tries to reach and stay at the center. The observation consists of the
+    agent's (x,y) coordinates and L "distractor" samples of Gaussian noise .
+    The challenge is to select the relevant features in the observations, and
+    not overfit to noise.
+    """
+
+    def __init__(self, *, size: int = 5, noise_length: int = 20):
+        """Build environment.
+
+        Args:
+            size: width and height of gridworld.
+            noise_length: dimension of noise vector in observation.
+        """
+        self._size = size
+        self._noise_length = noise_length
+        self._goal = np.array([self._size // 2, self._size // 2])
+
+        super().__init__(
+            state_space=spaces.MultiDiscrete([size, size]),
+            action_space=spaces.Discrete(5),
+            observation_space=spaces.Box(
+                low=np.concatenate(([0, 0], np.full(self._noise_length, -np.inf))),
+                high=np.concatenate(
+                    ([size - 1, size - 1], np.full(self._noise_length, np.inf)),
+                ),
+                dtype=np.float32,
             ),
-            dtype=float,
         )
-        super().__init__(num_actions=5)
 
-    def sample_initial_state(self):
-        n = self.size
+    def terminal(self, state: np.ndarray, n_actions_taken: int) -> bool:
+        """Always returns False."""
+        return False
+
+    def initial_state(self) -> np.ndarray:
+        """Returns one of the grid's corners."""
+        n = self._size
         corners = np.array([[0, 0], [n - 1, 0], [0, n - 1], [n - 1, n - 1]])
-        return corners[np.random.randint(4)]
+        return corners[self.rand_state.randint(4)]
 
-    def reward_fn(self, state, act, next_state):
-        dist = np.linalg.norm(self.goal - state)
-        reward = int(dist < 1e-5)
-        return reward
+    def reward(self, state: np.ndarray, action: int, new_state: np.ndarray) -> float:
+        """Returns  +1.0 reward if state is the goal and 0.0 otherwise."""
+        return float(np.all(state == self._goal))
 
-    def transition_fn(self, state, action):
-        return grid_transition_fn(
-            state, action, x_bounds=(0, self.size - 1), y_bounds=(0, self.size - 1)
+    def transition(self, state: np.ndarray, action: int) -> np.ndarray:
+        """Returns next state according to grid."""
+        return utils.grid_transition_fn(
+            state, action, x_bounds=(0, self._size - 1), y_bounds=(0, self._size - 1),
         )
 
-    def ob_from_state(self, state):
-        noise_vector = self.np_random.randn(self.noise_length)
-        ob = np.concatenate([state, noise_vector])
-        return ob
+    def obs_from_state(self, state: np.ndarray) -> np.ndarray:
+        """Returns (x, y) concatenated with Gaussian noise."""
+        noise_vector = self.rand_state.randn(self._noise_length)
+        return np.concatenate([state, noise_vector])
 
     def state_from_ob(self, ob):
         return ob[:2]
-
-
-def get_noisyobs_expert(venv):
-    env = get_raw_env(venv)
-
-    def predict_fn(ob, state=None, deterministic=False):
-        pos = ob[:2]
-        dx, dy = env.goal - pos
-
-        conditions = [
-            dx > 0,
-            dy > 0,
-            dx < 0,
-            dy < 0,
-            True,
-        ]
-        act = np.argmax(conditions)
-
-        return act, state
-
-    return LightweightRLModel(predict_fn=predict_fn, env=venv)
-
-
-_horizon_v0 = 15
-
-gym.register(
-    id=f"seals/NoisyObs-v0",
-    entry_point=f"derail.envs:NoisyObsEnv",
-    max_episode_steps=_horizon_v0,
-)
-
-for i, (size, length) in enumerate(itertools.product((3, 5, 7), (5, 50, 500)), 1):
-    gym.register(
-        id=f"seals/NoisyObs-v{i}",
-        entry_point=f"derail.envs:NoisyObsEnv",
-        max_episode_steps=_horizon_v0,
-        kwargs=dict(size=size, noise_length=length,),
-    )

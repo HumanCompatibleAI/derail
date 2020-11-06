@@ -1,18 +1,32 @@
 import argparse
+from datetime import datetime
 from concurrent import futures
 import functools
 import itertools
 import re
 import os
+import time
 
 import tensorflow as tf
+
+# Remove excessive tensorflow warnings
+try:
+    from tensorflow.python.util import module_wrapper as deprecation
+except ImportError:
+    from tensorflow.python.util import deprecation_wrapper as deprecation
+deprecation._PER_MODULE_WARNING_LIMIT = 0
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
+
 from stable_baselines.common.vec_env import DummyVecEnv
 
 from derail.utils import (
     get_expert_algo,
-    get_random_policy,
-    get_timestamp,
     get_hard_mdp_expert,
+    get_ppo,
+    get_random_policy,
     monte_carlo_eval_policy,
     ppo_algo,
     tabular_eval_policy,
@@ -20,49 +34,23 @@ from derail.utils import (
 )
 
 from derail.envs import *
+from derail.envs.experts import *
 from derail.algorithms import *
 
 
-class EvalCallback:
-    def __init__(self, max_n_evals=21, min_step_size=1000):
-        self.returns = []
-        self.last_timesteps = None
+def get_timestamp():
+    return datetime.now().strftime("%Y-%m-%d-%H-%M-%S-%f")
 
-        self.max_n_evals = max_n_evals
-        self.min_step_size = min_step_size
+def get_full_env_name(name):
+    has_version = "-v" in name
+    is_seals = True
 
-    def step(self, lcls, glbs):
-        total_timesteps = lcls["total_timesteps"]
-        step_size = max(total_timesteps // (self.max_n_evals - 1), self.min_step_size)
+    if not has_version:
+        name = f'{name}-v0'
+    if is_seals:
+        name = f'seals/{name}'
 
-        timesteps = lcls["timesteps"]
-        if (
-            self.last_timesteps is not None
-            and timesteps - self.last_timesteps < step_size
-        ):
-            return
-
-        venv = lcls["venv"]
-        policy = lcls["policy"]
-
-        rew = monte_carlo_eval_policy(
-            policy, venv, n_eval_episodes=1000, deterministic=False
-        )
-
-        self.returns.append((timesteps, rew))
-
-        self.last_timesteps = timesteps
-
-    def get_results(self):
-        return self.returns
-
-
-def name_with_version(name):
-    if "-v" in name:
-        return name
-    else:
-        return f"{name}-v0"
-
+    return name
 
 class SimpleTask:
     def __init__(
@@ -79,15 +67,12 @@ class SimpleTask:
             expert_env_name = env_name
         if expert_kwargs is None:
             expert_kwargs = {}
-        if algo_kwargs is None:
-            algo_kwargs = {}
         if eval_kwargs is None:
             eval_kwargs = {}
 
         self.env_name = env_name
         self.expert_env_name = expert_env_name
         self.expert_kwargs = expert_kwargs
-        self.algo_kwargs = algo_kwargs
 
         self.expert_fn = expert_fn
 
@@ -95,13 +80,10 @@ class SimpleTask:
         self.eval_kwargs = dict(n_eval_episodes=100, deterministic=False)
         self.eval_kwargs.update(eval_kwargs)
 
-        self.callback_cls = EvalCallback
-        self.callback_cls = None
-        self.callback_kwargs = dict()
+    def run(self, algo, seed, **algo_kwargs):
+        algo_name = algo_kwargs['algo_name']
 
-    def run(self, algo, **algo_kwargs):
-
-        expert_env = gym.make(f"seals/{name_with_version(self.expert_env_name)}")
+        expert_env = gym.make(get_full_env_name(self.expert_env_name))
         expert_env = DummyVecEnv([lambda: expert_env])
 
         total_timesteps = algo_kwargs.get("total_timesteps", None)
@@ -109,39 +91,25 @@ class SimpleTask:
         expert_kwargs = self.expert_kwargs.copy()
         if total_timesteps is not None and "total_timesteps" not in expert_kwargs:
             expert_kwargs["total_timesteps"] = total_timesteps
-        expert = self.expert_fn(expert_env, **self.expert_kwargs)
-
-        if self.callback_cls is not None:
-            callback = self.callback_cls(**self.callback_kwargs)
-            callback_fn = callback.step
-        else:
-            callback = None
-            callback_fn = None
+        expert = self.expert_fn(expert_env, **expert_kwargs)
 
         task_results = {}
 
         tf.reset_default_graph()
         with tf.Session(config=tf.ConfigProto(device_count={"GPU": 0})) as sess:
-            env = gym.make(f"seals/{name_with_version(self.env_name)}")
+            env = gym.make(get_full_env_name(self.env_name))
             env = DummyVecEnv([lambda: env])
-
-            kwargs = self.algo_kwargs.copy()
-            kwargs.update(algo_kwargs)
 
             algo_results = algo(
                 env,
                 expert=expert,
                 expert_venv=expert_env,
-                callback=callback_fn,
-                **kwargs,
+                **algo_kwargs,
             )
             learned_policy = algo_results["policy"]
 
             avg_return = self.eval_policy_fn(learned_policy, env, **self.eval_kwargs)
             task_results["return"] = avg_return
-
-        if self.callback_cls is not None:
-            task_results["callback"] = callback.get_results()
 
         return task_results
 
@@ -157,8 +125,8 @@ TASKS = {
         eval_policy_fn=tabular_eval_policy,
     ),
     "init_state_shift": SimpleTask(
-        env_name="InitStateShiftLearner",
-        expert_env_name="InitStateShiftExpert",
+        env_name="InitShiftTest",
+        expert_env_name="InitShiftTrain",
         expert_fn=get_hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
@@ -171,15 +139,6 @@ TASKS = {
     "largest_sum": SimpleTask(env_name="LargestSum", expert_fn=get_largest_sum_expert,),
     "parabola": SimpleTask(env_name="Parabola", expert_fn=get_parabola_expert,),
     "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v1": SimpleTask(env_name="NoisyObs-v1", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v2": SimpleTask(env_name="NoisyObs-v2", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v3": SimpleTask(env_name="NoisyObs-v3", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v4": SimpleTask(env_name="NoisyObs-v4", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v5": SimpleTask(env_name="NoisyObs-v5", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v6": SimpleTask(env_name="NoisyObs-v6", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v7": SimpleTask(env_name="NoisyObs-v7", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v8": SimpleTask(env_name="NoisyObs-v8", expert_fn=get_noisyobs_expert,),
-    # "noisy_obs_v9": SimpleTask(env_name="NoisyObs-v9", expert_fn=get_noisyobs_expert,),
     "risky_path": SimpleTask(
         env_name="RiskyPath",
         expert_fn=get_hard_mdp_expert,
@@ -188,6 +147,7 @@ TASKS = {
     "proc_goal": SimpleTask(env_name="ProcGoal", expert_fn=get_proc_goal_expert,),
     "sort": SimpleTask(env_name="Sort", expert_fn=get_selectionsort_expert,),
 }
+
 
 ALGOS = {
     "mce_irl": mce_irl,
@@ -200,7 +160,11 @@ ALGOS = {
     "fu_gail": fu_gail,
     "fu_airl": fu_airl,
     "preferences": preferences,
+    "preferences_rnd": functools.partial(preferences, use_rnd_bonus=True),
+    "preferences_slow": functools.partial(preferences, policy_lr=1e-4),
+    "preferences_eps": functools.partial(preferences, egreedy_sampling=True),
     "airl": imitation_airl,
+
     "expert": get_expert_algo,
     "random": random_algo,
     "ppo": ppo_algo,
@@ -212,7 +176,7 @@ def run_experiment(task_name, algo_name, seed, *args, **kwargs):
 
     task = TASKS[task_name]
     algo = ALGOS[algo_name]
-    res = task.run(algo, *args, **kwargs)
+    res = task.run(algo, *args, seed=seed, algo_name=algo_name, **kwargs)
     res["task"] = task_name
     res["algo"] = algo_name
     res["seed"] = seed
@@ -240,6 +204,18 @@ def is_compatible(task_name, algo_name):
     ):
         return False
 
+    has_multidiscrete_action_space = [
+        "sort",
+    ]
+    no_multidiscrete_support_algos = [
+        "fu_airl",
+        "fu_gail",
+    ]
+    if algo_name in no_multidiscrete_support_algos and any(
+        pattern in task_name for pattern in has_multidiscrete_action_space
+    ):
+        return False
+
     return True
 
 
@@ -263,7 +239,7 @@ def eval_algorithms(
 
     def get_experiments():
         for seed, task_name, algo_name in itertools.product(
-            range(num_seeds), tasks, algos
+            range(num_seeds), tasks, algos,
         ):
             if is_compatible(task_name, algo_name):
                 yield task_name, algo_name, seed
@@ -281,13 +257,14 @@ def eval_algorithms(
         algo = result["algo"]
         ret = result["return"]
         seed = result["seed"]
-        callback_eval = result.get("callback", None)
 
-        if callback_eval is not None:
-            for timesteps, avg_ret in callback_eval:
-                log_line(f"{task} {algo} {seed} {timesteps} {avg_ret:.2f}")
+        include_seed = False
+        if include_seed:
+            maybe_seed = f" {seed}"
         else:
-            log_line(f"{task} {algo} {ret:.2f}")
+            maybe_seed = ""
+
+        log_line(f"{task} {algo}{maybe_seed} {ret:.2f}")
 
     if parallel:
         with futures.ProcessPoolExecutor(max_workers=None) as executor:
@@ -296,6 +273,7 @@ def eval_algorithms(
                 fts.append(
                     executor.submit(run_experiment, *spec, total_timesteps=timesteps)
                 )
+                time.sleep(0.01)
             for f in futures.as_completed(fts):
                 log_result(f.result())
     else:
