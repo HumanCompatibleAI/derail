@@ -33,8 +33,9 @@ from derail.utils import (
     train_rl,
 )
 
-from derail.envs import *
-from derail.envs.experts import *
+import gym
+import seals
+from derail.experts import *
 from derail.algorithms import *
 
 
@@ -204,15 +205,16 @@ def is_compatible(task_name, algo_name):
     ):
         return False
 
-    has_multidiscrete_action_space = [
-        "sort",
+    has_fu_conflict = [
+        "sort", # uses MultiDiscrete, not supported
+        "parabola", # uses Box with shape (,)
     ]
-    no_multidiscrete_support_algos = [
+    fu_algos = [
         "fu_airl",
         "fu_gail",
     ]
-    if algo_name in no_multidiscrete_support_algos and any(
-        pattern in task_name for pattern in has_multidiscrete_action_space
+    if algo_name in has_fu_conflict and any(
+        pattern in task_name for pattern in fu_algos
     ):
         return False
 

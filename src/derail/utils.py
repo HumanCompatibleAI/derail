@@ -366,7 +366,7 @@ class LightweightRLModel:
     def predict(self, ob, state=None, *args, **kwargs):
         # if self.is_vec:
         ob = np.array(ob)
-        undo_vec  = self._undo_vec and len(ob.shape) > len(self.env.observation_space.shape)
+        undo_vec = self._undo_vec and len(ob.shape) > len(self.env.observation_space.shape)
         if undo_vec:
             ob = ob[0]
             if state is not None:

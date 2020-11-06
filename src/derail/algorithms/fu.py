@@ -2,7 +2,7 @@ import functools
 
 import numpy as np
 
-from gym.spaces import Discrete
+from gym.spaces import Discrete, Box
 
 from sandbox.rocky.tf.policies.gaussian_mlp_policy import GaussianMLPPolicy
 from sandbox.rocky.tf.policies.categorical_mlp_policy import CategoricalMLPPolicy
@@ -40,7 +40,6 @@ def to_rllab_trajectories(trajectories, env):
         }
 
     return [to_rllab_traj(traj) for traj in trajectories]
-
 
 def fu_irl(
     venv,
