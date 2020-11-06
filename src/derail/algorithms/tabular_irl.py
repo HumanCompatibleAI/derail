@@ -7,6 +7,7 @@ from derail.utils import (
     get_horizon,
     get_initial_state_dist,
     get_raw_env,
+    get_transition_matrix,
     LightweightRLModel,
     LinearRewardModel,
     sample_trajectories,
@@ -22,14 +23,12 @@ def maximum_entropy_irl(
     total_timesteps=10000,
     **kwargs,
 ):
-    env = get_raw_env(venv)
-
     if expert_trajectories is None:
         expert_trajectories = sample_trajectories(
             expert_venv, expert, n_timesteps=total_timesteps
         )
 
-    num_states = env.observation_space.n
+    num_states = venv.observation_space.n
 
     expert_occupancy = np.zeros(num_states)
     for trj in expert_trajectories:
@@ -44,11 +43,11 @@ def maximum_entropy_irl(
 
     q_update_fn = mce_q_update_fn if causal else max_ent_q_update_fn
 
-    horizon = get_horizon(env)
-    initial_state_distribution = get_initial_state_dist(env)
+    horizon = get_horizon(venv)
+    initial_state_distribution = get_initial_state_dist(venv)
 
     irl_reward, policy_matrix = occupancy_match_irl(
-        dynamics=env.transition_matrix,
+        dynamics=get_transition_matrix(venv),
         horizon=horizon,
         reward_model=reward_model,
         expert_occupancy=expert_occupancy,
