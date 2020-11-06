@@ -204,6 +204,18 @@ def is_compatible(task_name, algo_name):
     ):
         return False
 
+    has_multidiscrete_action_space = [
+        "sort",
+    ]
+    no_multidiscrete_support_algos = [
+        "fu_airl",
+        "fu_gail",
+    ]
+    if algo_name in no_multidiscrete_support_algos and any(
+        pattern in task_name for pattern in has_multidiscrete_action_space
+    ):
+        return False
+
     return True
 
 
