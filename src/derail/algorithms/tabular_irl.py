@@ -44,7 +44,7 @@ def maximum_entropy_irl(
     q_update_fn = mce_q_update_fn if causal else max_ent_q_update_fn
 
     horizon = get_horizon(env)
-    initial_state_distribution = env.initial_state_distribution()
+    initial_state_distribution = get_initial_state_dist(env)
 
     irl_reward, policy_matrix = occupancy_match_irl(
         dynamics=env.transition_matrix,
