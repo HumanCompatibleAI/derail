@@ -1,4 +1,4 @@
-Supporting code for DERAIL: Diagnostic Environments for Reward and Imitation Learning
+Supporting code for *DERAIL: Diagnostic Environments for Reward and Imitation Learning*.
 
 To reproduce results:
 
