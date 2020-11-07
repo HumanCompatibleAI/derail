@@ -1,30 +1,17 @@
 import argparse
-from collections import Counter, defaultdict, deque
-from concurrent import futures
-from datetime import datetime
+import contextlib
 import functools
-import math
 import os
-import random
 import sys
-import time
-
-import gym
-from gym.spaces import Box, Discrete, MultiDiscrete
 
 import pandas as pd
 
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.transforms import Affine2D
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import numpy as np
 import seaborn as sns
-from scipy.special import softmax, logsumexp
-
-import contextlib
-import os
 
 
 ## We were using sns.boxplot for plotting, which makes
@@ -126,8 +113,6 @@ def new_draw_boxplot(self, ax, kws):
 sns.categorical._BoxPlotter.draw_boxplot = new_draw_boxplot
 
 
-LATEX_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "latex")
-
 STYLES = {
     "paper": {
         "axes.facecolor": "lightgray",
@@ -186,41 +171,17 @@ STYLES = {
 @contextlib.contextmanager
 def setup_styles(styles):
     styles = [STYLES[style] for style in styles]
-    import matplotlib.pyplot as plt  # pylint:disable=import-outside-toplevel
     with plt.style.context(styles):
         yield
 
 
 def heatmap(data, row_labels, col_labels, fig, ax=None,
-            cbar_kw={}, cbarlabel="", **kwargs):
-    """
-    Create a heatmap from a numpy array and two lists of labels.
-
-    Parameters
-    ----------
-    data
-        A 2D numpy array of shape (N, M).
-    row_labels
-        A list or array of length N with the labels for the rows.
-    col_labels
-        A list or array of length M with the labels for the columns.
-    ax
-        A `matplotlib.axes.Axes` instance to which the heatmap is plotted.  If
-        not provided, use current axes or create a new one.  Optional.
-    cbar_kw
-        A dictionary with arguments to `matplotlib.Figure.colorbar`.  Optional.
-    cbarlabel
-        The label for the colorbar.  Optional.
-    **kwargs
-        All other arguments are forwarded to `imshow`.
-    """
-
+            **kwargs):
     if not ax:
         ax = plt.gca()
 
     # Plot the heatmap
     im = ax.imshow(data, **kwargs, vmin=-0.1, vmax=1.0)
-
 
     vertical_bar = False
     if vertical_bar:
@@ -355,7 +316,6 @@ def make_boxplot(*, all_scores, entry, data_column, x_column, x_values, base_fol
         usermedians.append(score_means_per_x[x])
         conf_intervals.append([lower, upper])
 
-    breakpoint()
     usermedians = np.array(usermedians)[:, None]
     conf_intervals = np.array(conf_intervals)[:, None, :]
 
@@ -417,10 +377,10 @@ def process_results(
     base_folder='',
     color=None,
 ):
-    base_folder = os.path.join('plots/', base_folder)
-
     if heatmap_styles is None:
         heatmap_styles = ['heatmap']
+
+    base_folder = os.path.join('plots/', base_folder)
 
     algo_names, algos = zip(*algo_specs)
     to_algo_display_name = {res_name : display_name for display_name, res_name in algo_specs}
@@ -461,13 +421,6 @@ def process_results(
     mean_scores_dict = all_scores.groupby(['Task', 'Algorithm']).mean().to_dict()['Return']
     mean_or_nan = lambda t, a: mean_scores_dict[t, a] if (t, a) in mean_scores_dict else np.nan
     mean_scores = np.array([[mean_or_nan(task, algo) for algo in algo_names] for task in task_names])
-
-    add_mean_row = False
-    if add_mean_row:
-        mean_algo_scores = np.mean(mean_scores, axis=0, keepdims=True)
-        mean_scores = np.concatenate([mean_scores, mean_algo_scores], axis=0)
-        task_names = list(task_names)
-        task_names.append('mean')
 
     def make_heatmap():
         fig, ax = plt.subplots()
@@ -568,22 +521,22 @@ def get_noise_kwargs():
 def get_drlhp_kwargs():
     return dict(
         algo_specs=[
-            ('DRLHP_SA', 'preferences_0000'),
-            ('DRLHP_SLOW', 'preferences_0001'),
-            ('DRLHP_GREEDY', 'preferences_0010'),
-            ('DRLHP_BONUS', 'preferences_0100'),
+            ('DRLHP_SA', 'drlhp_sa'),
+            ('DRLHP_SLOW', 'drlhp_slow'),
+            ('DRLHP_GREEDY', 'drlhp_eps'),
+            ('DRLHP_BONUS', 'drlhp_rnd'),
         ],
         task_specs=[
-            ('RiskyPath', 'risky_path'),
-            ('EarlyTerm+', 'early_term_pos'),
-            ('EarlyTerm-', 'early_term_neg'),
-            ('Branching', 'branching'),
-            ('InitShift', 'init_state_shift'),
-            ('NoisyObs', 'noisy_obs'),
-            ('Parabola', 'parabola'),
-            ('LargestSum', 'largest_sum'),
-            ('ProcGoal', 'proc_goal'),
-            ('Sort', 'sort'),
+            ('RiskyPath', 'RiskyPath'),
+            ('EarlyTerm+', 'EarlyTermPos'),
+            ('EarlyTerm-', 'EarlyTermNeg'),
+            ('Branching', 'Branching'),
+            ('InitShift', 'InitShift'),
+            ('NoisyObs', 'NoisyObs'),
+            ('Parabola', 'Parabola'),
+            ('LargestSum', 'LargestSum'),
+            ('ProcGoal', 'ProcGoal'),
+            ('Sort', 'Sort'),
         ],
         base_folder='drlhp',
         heatmap_styles=['heatmap', 'heatmap_drlhp'],
@@ -603,4 +556,5 @@ def main():
     )
 
 
-main()
+if __name__ == '__main__':
+    main()

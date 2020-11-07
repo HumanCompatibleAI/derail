@@ -10,26 +10,19 @@ import time
 
 import tensorflow as tf
 
-# Remove excessive tensorflow warnings
-try:
-    from tensorflow.python.util import module_wrapper as deprecation
-except ImportError:
-    from tensorflow.python.util import deprecation_wrapper as deprecation
-deprecation._PER_MODULE_WARNING_LIMIT = 0
+# Remove excessive warnings
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
 tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.ERROR)
 
 from stable_baselines.common.vec_env import DummyVecEnv
 
 from derail.utils import (
-    get_expert_algo,
-    get_hard_mdp_expert,
     get_ppo,
     get_random_policy,
     monte_carlo_eval_policy,
-    ppo_algo,
     tabular_eval_policy,
     train_rl,
 )
@@ -38,6 +31,17 @@ import gym
 import seals
 from derail.experts import *
 from derail.algorithms import *
+
+
+def random_algo(env, *args, **kwargs):
+    return {"policy": get_random_policy(env), "reward_model": "random"}
+
+def rl_algo(env, *args, policy_fn=get_ppo, total_timesteps=10000, **kwargs):
+    policy = train_rl(env, policy_fn=policy_fn, total_timesteps=total_timesteps)
+    return {"policy": policy, "reward_model": "groundtruth"}
+
+def expert_algo(env, expert, *args, **kwargs):
+    return {"policy": expert, "reward_model": "groundtruth"}
 
 
 def get_timestamp():
@@ -60,7 +64,6 @@ class SimpleTask:
         env_name,
         expert_env_name=None,
         expert_kwargs=None,
-        algo_kwargs=None,
         expert_fn=train_rl,
         eval_policy_fn=monte_carlo_eval_policy,
         eval_kwargs=None,
@@ -83,13 +86,11 @@ class SimpleTask:
         self.eval_kwargs.update(eval_kwargs)
 
     def run(self, algo, seed, **algo_kwargs):
-        algo_name = algo_kwargs['algo_name']
-
-        expert_env = gym.make(get_full_env_name(self.expert_env_name))
-        expert_env = DummyVecEnv([lambda: expert_env])
-
         total_timesteps = algo_kwargs.get("total_timesteps", None)
 
+        get_env = lambda name : DummyVecEnv([lambda: gym.make(get_full_env_name(self.expert_env_name))])
+
+        expert_env = get_env(self.expert_env_name)
         expert_kwargs = self.expert_kwargs.copy()
         if total_timesteps is not None and "total_timesteps" not in expert_kwargs:
             expert_kwargs["total_timesteps"] = total_timesteps
@@ -99,8 +100,7 @@ class SimpleTask:
 
         tf.reset_default_graph()
         with tf.Session(config=tf.ConfigProto(device_count={"GPU": 0})) as sess:
-            env = gym.make(get_full_env_name(self.env_name))
-            env = DummyVecEnv([lambda: env])
+            env = get_env(self.env_name)
 
             algo_results = algo(
                 env,
@@ -116,20 +116,17 @@ class SimpleTask:
         return task_results
 
 
-def random_algo(env, *args, **kwargs):
-    return {"policy": get_random_policy(env), "reward_model": "random"}
-
 
 TASKS = {
     "Branching": SimpleTask(
         env_name="Branching",
-        expert_fn=get_hard_mdp_expert,
+        expert_fn=hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
     "InitShift": SimpleTask(
         env_name="InitShiftTest",
         expert_env_name="InitShiftTrain",
-        expert_fn=get_hard_mdp_expert,
+        expert_fn=hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
     "EarlyTermPos": SimpleTask(
@@ -143,7 +140,7 @@ TASKS = {
     "NoisyObs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
     "RiskyPath": SimpleTask(
         env_name="RiskyPath",
-        expert_fn=get_hard_mdp_expert,
+        expert_fn=hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
     "ProcGoal": SimpleTask(env_name="ProcGoal", expert_fn=get_proc_goal_expert,),
@@ -152,9 +149,9 @@ TASKS = {
 
 
 ALGOS = {
-    "expert": get_expert_algo,
+    "expert": expert_algo,
     "random": random_algo,
-    "ppo": ppo_algo,
+    "ppo": rl_algo,
     "bc": behavioral_cloning,
     "gail_im": imitation_gail,
     "gail_sb": stable_gail,
@@ -207,7 +204,6 @@ def is_compatible(task_name, algo_name):
 
     has_fu_conflict = [
         "Sort", # uses MultiDiscrete, not supported
-        "Parabola", # uses Box with shape (,)
     ]
     fu_algos = [
         "airl_fu",
@@ -248,13 +244,17 @@ def eval_algorithms(
 
     lines = []
 
+    os.makedirs('results/partial/', exist_ok=True)
     def log_line(line):
         lines.append(line)
         print(f"[Result] \t{line}")
-        with open(f"partial-results-{timestamp}.csv", "a") as f:
+        with open(f"results/partial/{timestamp}.csv", "a") as f:
             f.write(f"{line}\n")
 
     def log_result(result):
+        if not logging:
+            return 
+
         task = result["task"]
         algo = result["algo"]
         ret = result["return"]
