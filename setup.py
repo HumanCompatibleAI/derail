@@ -18,6 +18,7 @@ setup(
     package_dir={"": "src"},
     install_requires=[
         "gym",
+        "seaborn",
         "tensorflow>=1.15.0,<2.0.0",
         "stable-baselines[mpi] @ git+https://github.com/pedrofreire/stable-baselines.git",
         "rllab @ git+https://github.com/pedrofreire/rllab.git",

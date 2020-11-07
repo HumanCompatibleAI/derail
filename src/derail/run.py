@@ -5,6 +5,7 @@ import functools
 import itertools
 import re
 import os
+import shutil
 import time
 
 import tensorflow as tf
@@ -120,55 +121,54 @@ def random_algo(env, *args, **kwargs):
 
 
 TASKS = {
-    "branching": SimpleTask(
+    "Branching": SimpleTask(
         env_name="Branching",
         expert_fn=get_hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
-    "init_state_shift": SimpleTask(
+    "InitShift": SimpleTask(
         env_name="InitShiftTest",
         expert_env_name="InitShiftTrain",
         expert_fn=get_hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
-    "early_term_pos": SimpleTask(
+    "EarlyTermPos": SimpleTask(
         env_name="EarlyTermPos", expert_fn=get_early_term_pos_expert,
     ),
-    "early_term_neg": SimpleTask(
+    "EarlyTermNeg": SimpleTask(
         env_name="EarlyTermNeg", expert_fn=get_early_term_neg_expert,
     ),
-    "largest_sum": SimpleTask(env_name="LargestSum", expert_fn=get_largest_sum_expert,),
-    "parabola": SimpleTask(env_name="Parabola", expert_fn=get_parabola_expert,),
-    "noisy_obs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
-    "risky_path": SimpleTask(
+    "LargestSum": SimpleTask(env_name="LargestSum", expert_fn=get_largest_sum_expert,),
+    "Parabola": SimpleTask(env_name="Parabola", expert_fn=get_parabola_expert,),
+    "NoisyObs": SimpleTask(env_name="NoisyObs", expert_fn=get_noisyobs_expert,),
+    "RiskyPath": SimpleTask(
         env_name="RiskyPath",
         expert_fn=get_hard_mdp_expert,
         eval_policy_fn=tabular_eval_policy,
     ),
-    "proc_goal": SimpleTask(env_name="ProcGoal", expert_fn=get_proc_goal_expert,),
-    "sort": SimpleTask(env_name="Sort", expert_fn=get_selectionsort_expert,),
+    "ProcGoal": SimpleTask(env_name="ProcGoal", expert_fn=get_proc_goal_expert,),
+    "Sort": SimpleTask(env_name="Sort", expert_fn=get_selectionsort_expert,),
 }
 
 
 ALGOS = {
-    "mce_irl": mce_irl,
-    "max_ent_irl": max_ent_irl,
-    "airl_state_only": functools.partial(imitation_airl, state_only=True),
-    "preferences_state_only": functools.partial(preferences, state_only=True),
-    "imitation_gail": imitation_gail,
-    "behavioral_cloning": behavioral_cloning,
-    "stable_gail": stable_gail,
-    "fu_gail": fu_gail,
-    "fu_airl": fu_airl,
-    "preferences": preferences,
-    "preferences_rnd": functools.partial(preferences, use_rnd_bonus=True),
-    "preferences_slow": functools.partial(preferences, policy_lr=1e-4),
-    "preferences_eps": functools.partial(preferences, egreedy_sampling=True),
-    "airl": imitation_airl,
-
     "expert": get_expert_algo,
     "random": random_algo,
     "ppo": ppo_algo,
+    "bc": behavioral_cloning,
+    "gail_im": imitation_gail,
+    "gail_sb": stable_gail,
+    "gail_fu": fu_gail,
+    "airl_fu": fu_airl,
+    "airl_im_sa": imitation_airl,
+    "airl_im_so": functools.partial(imitation_airl, state_only=True),
+    "drlhp_sa": preferences,
+    "drlhp_so": functools.partial(preferences, state_only=True),
+    "maxent_irl": max_ent_irl,
+    "mce_irl": mce_irl,
+    "drlhp_slow": functools.partial(preferences, policy_lr=1e-4),
+    "drlhp_eps": functools.partial(preferences, egreedy_sampling=True),
+    "drlhp_rnd": functools.partial(preferences, use_rnd_bonus=True),
 }
 
 
@@ -186,19 +186,19 @@ def run_experiment(task_name, algo_name, seed, *args, **kwargs):
 
 def is_compatible(task_name, algo_name):
     continuous_tasks = [
-        "sort",
-        "noisy_obs",
-        "largest_sum",
-        "parabola",
-        "proc_goal",
+        "Sort",
+        "NoisyObs",
+        "LargestSum",
+        "Parabola",
+        "ProcGoal",
     ]
-    needs_discrete_algos = ["max_ent_irl", "mce_irl"]
+    needs_discrete_algos = ["maxent_irl", "mce_irl"]
     if algo_name in needs_discrete_algos and any(
         pattern in task_name for pattern in continuous_tasks
     ):
         return False
 
-    variable_horizon_tasks = ["early_term"]
+    variable_horizon_tasks = ["EarlyTerm"]
     fixed_horizon_algos = ["max_ent_irl", "mce_irl"]
     if algo_name in fixed_horizon_algos and any(
         pattern in task_name for pattern in variable_horizon_tasks
@@ -206,12 +206,12 @@ def is_compatible(task_name, algo_name):
         return False
 
     has_fu_conflict = [
-        "sort", # uses MultiDiscrete, not supported
-        "parabola", # uses Box with shape (,)
+        "Sort", # uses MultiDiscrete, not supported
+        "Parabola", # uses Box with shape (,)
     ]
     fu_algos = [
-        "fu_airl",
-        "fu_gail",
+        "airl_fu",
+        "gail_fu",
     ]
     if algo_name in fu_algos and any(
         pattern in task_name for pattern in has_fu_conflict
@@ -285,9 +285,13 @@ def eval_algorithms(
 
     if logging:
         lines.sort()
-        with open(f"results-{timestamp}.csv", "w") as f:
+
+        os.makedirs('results', exist_ok=True)
+        results_file = f"results/{timestamp}.csv"
+        with open(results_file, "w") as f:
             f.write("\n".join(lines))
             f.write("\n")
+        shutil.copy(results_file, 'results/last.csv')
 
 
 if __name__ == "__main__":

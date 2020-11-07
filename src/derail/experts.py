@@ -123,7 +123,7 @@ def get_parabola_expert(venv, **kwargs):
     def predict_fn(ob, state=None, deterministic=False):
         y = ob[1]
         act = get_target(ob) - y
-        act = np.array(act)
+        act = np.array([act])
         return act, state
 
     expert = LightweightRLModel(predict_fn=predict_fn, env=venv)
