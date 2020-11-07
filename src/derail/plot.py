@@ -397,10 +397,10 @@ def process_results(
     algo_names = [algo for algo in algo_names if algo in df['Algorithm'].values]
     task_names = [task for task in task_names if task in df['Task'].values]
 
-    task_random = df[df['Algorithm'] == 'Random'].drop('Algorithm', axis=1).groupby('Task').mean().to_dict()['Return']
+    task_random = df[df['Algorithm'] == 'random'].drop('Algorithm', axis=1).groupby('Task').mean().to_dict()['Return']
 
     if 'expert' in df['Algorithm'].values:
-        task_max = df[df['Algorithm'] == 'Expert'].drop('Algorithm', axis=1).groupby('Task').mean().to_dict()['Return']
+        task_max = df[df['Algorithm'] == 'expert'].drop('Algorithm', axis=1).groupby('Task').mean().to_dict()['Return']
     else:
         task_max = df.drop('Algorithm', axis=1).groupby('Task').max().to_dict()['Return']
 
@@ -473,8 +473,8 @@ def get_type_kwargs(typ):
 def get_full_kwargs():
     return dict(
         algo_specs=[
-            ('Expert', 'expert'),
-            ('Random', 'random'),
+            # ('Expert', 'expert'),
+            # ('Random', 'random'),
             ('PPO', 'ppo'),
             ('BC', 'bc'),
             ('GAIL_IM', 'gail_im'),
