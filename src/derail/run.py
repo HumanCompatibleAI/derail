@@ -195,13 +195,6 @@ def is_compatible(task_name, algo_name):
     ):
         return False
 
-    variable_horizon_tasks = ["EarlyTerm"]
-    fixed_horizon_algos = ["max_ent_irl", "mce_irl"]
-    if algo_name in fixed_horizon_algos and any(
-        pattern in task_name for pattern in variable_horizon_tasks
-    ):
-        return False
-
     has_fu_conflict = [
         "Sort", # uses MultiDiscrete, not supported
     ]
