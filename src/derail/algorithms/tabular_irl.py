@@ -6,12 +6,33 @@ from scipy.special import logsumexp
 from derail.utils import (
     get_horizon,
     get_initial_state_dist,
-    get_raw_env,
     get_transition_matrix,
     LightweightRLModel,
-    LinearRewardModel,
     sample_trajectories,
 )
+
+
+class LinearRewardModel:
+    def __init__(self, state_features):
+        self.state_features = state_features
+        nF, nS = state_features.shape
+        self._w = np.random.randn(nF)
+
+    def get_state_rewards(self):
+        return self._w @ self.state_features
+
+    def get_state_reward_grads(self):
+        return self.state_features
+
+    def get_rewards_and_grads(self):
+        return (self.get_state_rewards(), self.get_state_reward_grads())
+
+    def update_params(self, alpha, grad):
+        self._w += alpha * grad.reshape(self._w.shape)
+
+    def reward_fn(self, ob, act, next_ob):
+        return self._w[next_ob]
+
 
 
 def maximum_entropy_irl(
@@ -28,18 +49,16 @@ def maximum_entropy_irl(
             expert_venv, expert, n_timesteps=total_timesteps
         )
 
-    num_states = venv.observation_space.n
+    nS = venv.observation_space.n
 
-    expert_occupancy = np.zeros(num_states)
+    expert_occupancy = np.zeros(nS)
     for trj in expert_trajectories:
         for ob in trj.obs:
             expert_occupancy[ob] += 1.0
     expert_occupancy /= expert_occupancy.sum()
 
-    state_features = np.identity(num_states)
+    state_features = np.identity(nS)
     reward_model = LinearRewardModel(state_features)
-
-    irl_fn = mce_irl if causal else max_ent_irl
 
     q_update_fn = mce_q_update_fn if causal else max_ent_q_update_fn
 
@@ -68,12 +87,12 @@ def compute_occupancy_measure(
     transition, policy, state_rewards, initial_state_distribution
 ):
     horizon = policy.shape[0]
-    num_states = transition.shape[0]
+    nS = transition.shape[0]
     # transport[t, s, ns] == sum_a policy[t, s, a] * transition[s, a, ns]
     # transport = np.sum(policy[:, :, :, None] * transition[None, :, :, :], axis=2)
     transport = np.einsum("tsa,san->tsn", policy, transition)
 
-    density = np.zeros((horizon + 1, num_states))
+    density = np.zeros((horizon + 1, nS))
     density[0] = initial_state_distribution
     for t in range(horizon):
         density[t + 1, :] = density[t, :] @ transport[t, :, :]
@@ -92,12 +111,12 @@ def occupancy_match_irl(
 ):
     """Maximum Entropy Inverse Reinforcement Learning.
     """
-    num_states, num_actions, _ = dynamics.shape
-    num_features = len(reward_model._w)
+    nS, nA, _ = dynamics.shape
+    nF = len(reward_model._w)
 
     def compute_policy(state_rewards):
-        Q = np.empty((horizon, num_states, num_actions))
-        V = np.empty((horizon + 1, num_states))
+        Q = np.empty((horizon, nS, nA))
+        V = np.empty((horizon + 1, nS))
 
         V[-1] = logsumexp(state_rewards[:, None], axis=1)
 
@@ -117,8 +136,8 @@ def occupancy_match_irl(
     alpha = 1e-3
     beta_1 = 0.9
     beta_2 = 0.99
-    m = np.zeros(num_features)
-    v = np.zeros(num_features)
+    m = np.zeros(nF)
+    v = np.zeros(nF)
 
     iter_step = 0
     while occupancy_diff_max > EPS and grad_norm > EPS and iter_step < max_iterations:

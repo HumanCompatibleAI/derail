@@ -1,6 +1,16 @@
 import numpy as np
 
-from derail.utils import get_raw_env, LightweightRLModel
+from derail.utils import (
+    LightweightRLModel,
+    force_shape,
+    get_horizon,
+    get_random_policy,
+    get_raw_env,
+    get_reward_matrix,
+    get_transition_matrix,
+)
+
+from scipy.special import logsumexp
 
 def get_noisyobs_expert(venv, **kwargs):
     env = get_raw_env(venv)
@@ -128,3 +138,54 @@ def get_parabola_expert(venv, **kwargs):
 
     expert = LightweightRLModel(predict_fn=predict_fn, env=venv)
     return expert
+
+
+def hard_value_iteration(venv, discount=1.0):
+    horizon = get_horizon(venv)
+    nS = venv.observation_space.n
+    nA = venv.action_space.n
+
+    reward_matrix = force_shape(get_reward_matrix(venv), (nS, nA, nS))
+    dynamics = get_transition_matrix(venv)
+
+    Q = np.empty((horizon, nS, nA))
+    V = np.empty((horizon + 1, nS))
+    V[-1] = np.zeros(nS)
+    for t in reversed(range(horizon)):
+        for s in range(nS):
+            for a in range(nA):
+                Q[t, s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + discount * V[t + 1, :])
+        V[t] = np.max(Q[t], axis=1)
+
+    policy = np.eye(nA)[Q.argmax(axis=2)]
+
+    return policy
+
+
+def soft_value_iteration(venv, beta=10):
+    horizon = get_horizon(venv)
+    nS = venv.observation_space.n
+    nA = venv.action_space.n
+
+    reward_matrix = force_shape(get_reward_matrix(venv), (nS, nA, nS))
+    dynamics = get_transition_matrix(venv)
+
+    Q = np.empty((horizon, nS, nA))
+    V = np.empty((horizon + 1, nS))
+    V[-1] = np.zeros(nS)
+    for t in reversed(range(horizon)):
+        for s in range(nS):
+            for a in range(nA):
+                Q[t, s, a] = dynamics[s, a, :] @ (reward_matrix[s, a, :] + V[t + 1, :])
+        V[t] = logsumexp(Q[t], axis=1)
+
+    policy = np.exp(Q - V[:-1, :, None])
+
+    return policy
+
+def hard_mdp_expert(venv, *args, **kwargs):
+    return LightweightRLModel.from_matrix(hard_value_iteration(venv), env=venv)
+
+def soft_mdp_expert(venv, *args, **kwargs):
+    return LightweightRLModel.from_matrix(soft_value_iteration(venv), env=venv)
+

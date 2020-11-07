@@ -21,9 +21,6 @@ from derail.utils import (
     get_raw_env,
     get_horizon,
     make_egreedy,
-    ti_hard_value_fn,
-    ti_soft_value_fn,
-    RunningMeanVar,
 )
 
 def preferences(
@@ -294,3 +291,46 @@ def eval_fn_from_reward(reward_fn, state_fn=None):
         )
 
     return eval_path_fn
+
+
+class RunningMeanVar:
+    def __init__(self, alpha=0.05):
+        self.alpha = alpha
+
+        self.mean = 0
+        self.var = 1.0
+        self.count = 0
+
+        self.update_on = True
+
+    def count_update(self, xs):
+        batch_mean = np.mean(xs)
+        batch_var = np.var(xs)
+        batch_count = len(xs)
+
+        delta = batch_mean - self.mean
+        tot_count = self.count + batch_count
+
+        new_mean = self.mean + delta * batch_count / tot_count
+        m_a = self.var * (self.count)
+        m_b = batch_var * (batch_count)
+        M2 = m_a + m_b + np.square(delta) * self.count * batch_count / (self.count + batch_count)
+        new_var = M2 / (self.count + batch_count)
+
+        new_count = batch_count + self.count
+
+        self.mean = new_mean
+        self.var = new_var
+        self.count = new_count
+
+    def exp_update(self, xs):
+        if self.update_on:
+            batch_mean = np.mean(xs)
+            batch_var = np.var(xs)
+
+            delta = batch_mean - self.mean
+            self.mean += self.alpha * delta
+            self.var = (1 - self.alpha) * (self.var + self.alpha * delta**2)
+
+        return (xs - self.mean) / np.sqrt(self.var)
+

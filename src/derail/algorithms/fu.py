@@ -1,4 +1,6 @@
 import functools
+import os
+import sys
 
 import numpy as np
 
@@ -53,6 +55,10 @@ def fu_irl(
     callback=None,
     **kwargs,
 ):
+    # Disable algorithm's internal prints
+    old_stdout = sys.stdout
+    sys.stdout = open(os.devnull, 'w')
+
     raw_env = get_raw_env(venv)
     tf_env = TfEnv(GymEnv(env=raw_env, record_video=False, record_log=False))
 
@@ -97,6 +103,8 @@ def fu_irl(
         baseline=LinearFeatureBaseline(env_spec=tf_env.spec),
     )
     algo.train()
+
+    sys.stdout = old_stdout
 
     def predict_fn(ob, state=None, deterministic=False):
         act, _ = algo.policy.get_action(ob)

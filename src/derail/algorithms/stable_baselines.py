@@ -15,7 +15,6 @@ from derail.utils import (
 def get_expert_dataset(
     expert, venv, total_timesteps,
 ):
-
     filename = f"/tmp/{uuid.uuid4()}"
     n_episodes = total_timesteps // get_horizon(venv)
 
