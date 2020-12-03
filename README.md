@@ -1,6 +1,8 @@
-Supporting code for DERAIL: Diagnostic Environments for Reward and Imitation Learning
+Supporting code for the paper [DERAIL: Diagnostic Environments for Reward and Imitation Learning](https://arxiv.org/abs/2012.01365).
 
-To reproduce results:
+The environments are available at the [HumanCompatibleAI/seals](https://github.com/HumanCompatibleAI/seals/) repo. This repo contains the algorithms used, and the scripts to run and plot the experiments.
+
+To reproduce the results:
 
 ```bash
 git clone https://github.com/HumanCompatibleAI/derail
